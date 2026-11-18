@@ -439,7 +439,7 @@ private fun WallpaperSlides(walls: List<dev.veil.launcher.data.Wallpaper>) {
                 it.author?.let { a ->
                     Text(
                         "Photograph by $a", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                        fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.75f),
+                        fontSize = 11.sp, color = Veil.Text.copy(alpha = 0.7f),
                     )
                 }
             }

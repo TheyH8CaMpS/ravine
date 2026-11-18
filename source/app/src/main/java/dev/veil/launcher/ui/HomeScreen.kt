@@ -512,7 +512,7 @@ private fun WallpaperCaption(wallpaper: dev.veil.launcher.data.Wallpaper, modifi
             w.author?.let {
                 Text(
                     "Photograph by $it", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    fontSize = 15.sp, color = Veil.Text.copy(alpha = 0.75f),
+                    fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.7f), // owner: credit a bit smaller
                 )
             }
         }

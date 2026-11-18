@@ -1,8 +1,10 @@
 name: Build APK
 
 # Every push builds an APK you can download from the run's "Artifacts".
-# Pushing a tag like v0.1.0 also publishes a GitHub Release with ravine.apk, so the Shield can always
-# fetch the newest build from: https://github.com/TheyH8CaMpS/ravine/releases/latest/download/ravine.apk
+# A push to main whose commit message contains "[release]" (or a pushed v* tag) also publishes a GitHub
+# Release with ravine.apk, so the Shield can always install the newest one with the Downloader app from:
+#   https://github.com/TheyH8CaMpS/ravine/releases/latest/download/ravine.apk
+# (Requested by the owner: Claude sessions can't push tags, so the workflow creates the release itself.)
 on:
   push:
     branches: [main]
@@ -56,6 +58,8 @@ jobs:
       - name: Build and test
         env:
           RAVINE_KEYSTORE_PASSWORD: ${{ secrets.RAVINE_KEYSTORE_PASSWORD }}
+          # Every CI build gets a higher versionCode, so Android always treats it as an update.
+          RAVINE_BUILD_NUMBER: ${{ github.run_number }}
         run: ./gradlew --no-daemon assembleRelease testReleaseUnitTest
 
       - name: Name the APK
@@ -66,9 +70,19 @@ jobs:
           name: ravine-apk
           path: source/ravine.apk
 
-      - name: Publish release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Read version
+        id: version
+        run: echo "name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        if: >-
+          startsWith(github.ref, 'refs/tags/v') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', steps.version.outputs.name, github.run_number) }}
+          name: Ravine ${{ steps.version.outputs.name }} (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
           files: source/ravine.apk
           generate_release_notes: true
+          make_latest: true

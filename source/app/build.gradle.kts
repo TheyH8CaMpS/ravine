@@ -31,7 +31,7 @@ android {
         applicationId = "app.ravine.launcher"
         minSdk = 28 // Android 9+. Newer-only features are guarded with version checks.
         targetSdk = 34
-        versionCode = 100
+        versionCode = 100 + (System.getenv("RAVINE_BUILD_NUMBER")?.toIntOrNull() ?: 0) // CI: rises every build
         versionName = "0.1.0"
         buildConfigField("String", "TRAKT_CLIENT_ID", key("TRAKT_CLIENT_ID"))
         buildConfigField("String", "TRAKT_CLIENT_SECRET", key("TRAKT_CLIENT_SECRET"))

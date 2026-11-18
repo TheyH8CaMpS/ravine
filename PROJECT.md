@@ -51,7 +51,7 @@ They're out of scope.
 | D5 | Wallpapers use the existing `overflight.json` schema (`location`, `title`, `author`, `url_img`) from `TheyH8CaMpS/shield-wallpaper-library`, unchanged | Projectivy + Overflight keep working as a fallback; one feed for both |
 | D6 | Wallpapers are cached on disk and decoded at 1920×1080, never 4K | A 4K ARGB bitmap is ~33 MB and crossfades hold two; works offline after the first sync |
 | D7 | Watch progress through a `WatchSource` interface: local Nuvio history first, Simkl second, Trakt optional | Trakt free accounts allow one connected app (Nuvio uses it). See §5 |
-| D8 | CI builds every push; tags publish `ravine.apk` to GitHub Releases | No computer needs to stay on; the Shield installs from a fixed URL |
+| D8 | CI builds every push; a commit whose message contains `[release]` publishes `ravine.apk` as the latest GitHub Release (the workflow creates the tag, since Claude sessions can't push tags). versionCode = 100 + CI run number | No computer needs to stay on; the Shield installs from a fixed URL |
 | D9 | A stable release key from GitHub secrets (`RAVINE_KEYSTORE_*`) | Veil's debug-key signing makes each build machine's APK unable to update another's |
 | D10 | Never disable or uninstall system packages, including the stock launcher | Inherited from Veil's install rules: debloating boot-looped a TV |
 | D11 | Local Nuvio history is the default Continue Watching source, recorded by `MediaListener` in the background | Ravine is stopped while Nuvio plays, so the on-screen tracker never sees the end of an episode. Needs notification access (granted over ADB) |
