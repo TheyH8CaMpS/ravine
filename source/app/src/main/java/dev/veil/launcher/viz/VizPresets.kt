@@ -70,6 +70,36 @@ object VizPresets {
      * threads/highlights and the overall brightness.
      */
     val all = listOf(
+        // ---- Ravine: two-colour palettes (a ± b at the ends of the range; d = 0.5 starts at the dark one) ----
+        // Forest floor to sunlit moss, in slow silk and dye.
+        preset("Moss", *FLUID, "decay" to 0.98f,
+            "wSilk" to 0.6f, "wDye" to 0.8f, "wSplat" to 0.5f, "gloss" to 0.3f, "themeMix" to 0.05f,
+            palette = P.pal(P.v(.315f, .405f, .25f), P.v(.235f, .245f, .15f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, .5f))),
+        // Redwood bark to canyon terracotta, polished like grain in wood.
+        preset("Redwood", *FLUID, "warpFreq" to 1.2f, "decay" to 0.978f,
+            "wMarble" to 0.9f, "wDye" to 0.4f, "wSplat" to 0.5f, "gloss" to 0.7f, "themeMix" to 0.05f,
+            palette = P.pal(P.v(.475f, .26f, .175f), P.v(.325f, .19f, .125f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, .5f))),
+        // Coastal fog rolling over charcoal hills.
+        preset("Fog Line", *FLUID, "warpSpeed" to 0.45f, "decay" to 0.984f,
+            "wDye" to 0.6f, "wSilk" to 0.5f, "wSplat" to 0.4f, "wPlasma" to 0.2f, "gloss" to 0.15f, "themeMix" to 0.05f,
+            palette = P.pal(P.v(.42f, .44f, .41f), P.v(.32f, .32f, .3f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, .5f))),
+        // Forest green warming into Ravine's brass.
+        preset("Brass and Pine", *FLUID, "decay" to 0.978f,
+            "wMarble" to 0.6f, "wDye" to 0.6f, "wSplat" to 0.5f, "gloss" to 0.8f, "themeMix" to 0.05f,
+            palette = P.pal(P.v(.43f, .38f, .255f), P.v(.36f, .28f, .175f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, .5f))),
+        // Dodger blue under stadium lights.
+        preset("Dodger Blue", *FLUID, "decay" to 0.978f,
+            "wSilk" to 0.6f, "wDye" to 0.7f, "wSplat" to 0.6f, "gloss" to 0.6f, "themeMix" to 0.05f,
+            palette = P.pal(P.v(.4f, .575f, .705f), P.v(.4f, .225f, .095f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, .5f))),
+        // Silver and black: polished, a chrome edge on every beat.
+        preset("Silver and Black", *FLUID, "decay" to 0.98f,
+            "wMarble" to 0.7f, "wDye" to 0.5f, "wSplat" to 0.6f, "solarize" to 0.3f, "gloss" to 1f, "themeMix" to 0.0f,
+            palette = P.pal(P.v(.4f, .405f, .42f), P.v(.35f, .355f, .36f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, .5f))),
+        // Purple and gold (blue runs the other way so purple and gold sit at the two ends).
+        preset("Purple and Gold", *FLUID, "decay" to 0.978f,
+            "wDye" to 0.8f, "wMarble" to 0.4f, "wSplat" to 0.6f, "gloss" to 0.6f, "themeMix" to 0.0f,
+            palette = P.pal(P.v(.64f, .45f, .35f), P.v(.31f, .3f, .15f), P.v(.5f, .5f, .5f), P.v(.5f, .5f, 0f))),
+        // ---- Veil's originals ----
         // Molten metal: curl-noise flow, a scope line, solarized into chrome. (The original.)
         preset("Liquid Chrome",
             "warpAmp" to 0.004f, "warpFreq" to 3f, "warpSpeed" to 0.8f, "decay" to 0.965f, "wLine" to 1f,

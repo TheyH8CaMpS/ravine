@@ -236,6 +236,27 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun unpin(app: AppEntry) = savePins(pins - app.pkg)
 
     /** Moves a pinned app one step left (-1) or right (+1) among the apps that are installed. */
+    /** Ravine: the dock app being moved with Left/Right, or null. */
+    var movingPkg by mutableStateOf<String?>(null)
+        private set
+
+    fun startMove(app: AppEntry) {
+        sheet = null
+        movingPkg = app.pkg
+        showToast("Move ${app.label} with left and right · OK when done")
+    }
+
+    fun finishMove() { movingPkg = null }
+
+    /** Ravine: film grain over the photo (on by default). */
+    var filmGrain by mutableStateOf(prefs.getBoolean("film_grain", true))
+        private set
+
+    fun toggleFilmGrain() {
+        filmGrain = !filmGrain
+        prefs.edit().putBoolean("film_grain", filmGrain).apply()
+    }
+
     fun move(app: AppEntry, delta: Int) {
         val visible = pinnedApps.map { it.pkg }.toMutableList()
         val i = visible.indexOf(app.pkg)

@@ -49,6 +49,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -151,6 +154,7 @@ fun HomeScreen(state: LauncherState) {
         val veil = PictureDepth.extraShade(state.pictureDepth)
         if (veil > 0f) Box(Modifier.fillMaxSize().background(ThemeState.current.bg.copy(alpha = veil)))
         HomeShade(bg = ThemeState.current.bg, glow = ArtTint.target)
+        GrainLayer(state.filmGrain)
 
         Column(Modifier.fillMaxSize().padding(top = 26.dp, bottom = 22.dp)) {
             TopBar(state, modifier = Modifier.zIndex(1f).recede(frostTop).padding(horizontal = EDGE))
@@ -411,11 +415,15 @@ private fun AppsRow(state: LauncherState, focusKey: (String) -> FocusRequester) 
             .edgeFade(left = listState.canScrollBackward, right = listState.canScrollForward),
     ) {
         itemsIndexed(state.pinnedApps, key = { _, a -> a.pkg }) { _, app ->
+            val moving = state.movingPkg == app.pkg
             AppPill(
                 app = app,
-                onClick = { state.launch(app) },
-                onLongClick = { state.sheet = AppSheet(app, fromHome = true) },
-                modifier = Modifier.remembered(state, "app:${app.pkg}", focusKey),
+                moving = moving,
+                onClick = { if (!moving) state.launch(app) },
+                onLongClick = { if (!moving) state.sheet = AppSheet(app, fromHome = true) },
+                modifier = Modifier
+                    .remembered(state, "app:${app.pkg}", focusKey)
+                    .moveKeys(state, app, moving),
             )
         }
         item(key = "all-apps") {
@@ -450,6 +458,25 @@ internal fun TitleOrLogo(item: WatchItem, fontSize: androidx.compose.ui.unit.Tex
         }
     }
 }
+
+/**
+ * Ravine move mode for a dock app: Left/Right slide it along the dock, OK or Back finishes. Up/Down are held
+ * so focus can't wander off mid-move. Both key-down and key-up are consumed, so OK doesn't also open the app.
+ */
+private fun Modifier.moveKeys(state: LauncherState, app: dev.veil.launcher.data.AppEntry, moving: Boolean): Modifier =
+    if (!moving) this else this.onPreviewKeyEvent { e ->
+        val down = e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown
+        when (e.key) {
+            androidx.compose.ui.input.key.Key.DirectionLeft -> { if (down) state.move(app, -1); true }
+            androidx.compose.ui.input.key.Key.DirectionRight -> { if (down) state.move(app, +1); true }
+            androidx.compose.ui.input.key.Key.DirectionUp, androidx.compose.ui.input.key.Key.DirectionDown -> true
+            androidx.compose.ui.input.key.Key.DirectionCenter, androidx.compose.ui.input.key.Key.Enter,
+            androidx.compose.ui.input.key.Key.NumPadEnter, androidx.compose.ui.input.key.Key.Back -> {
+                if (!down) state.finishMove(); true
+            }
+            else -> false
+        }
+    }
 
 /** Behind an open menu: content fades back (alpha only, which this GPU handles easily). */
 private fun Modifier.recede(amount: androidx.compose.runtime.State<Float>): Modifier =

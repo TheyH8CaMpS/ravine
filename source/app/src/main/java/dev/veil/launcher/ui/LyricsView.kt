@@ -269,8 +269,9 @@ private fun Lyrics.Line.display(): String = if (words.isEmpty()) text else words
 @Composable
 private fun LyricText(text: String, size: TextUnit, align: TextAlign = TextAlign.Start, shadow: Boolean = false) {
     Text(
-        text, fontSize = size, lineHeight = size * 1.18f, fontWeight = FontWeight.ExtraBold,
-        letterSpacing = (-0.02f * size.value).sp, textAlign = align,
+        // Ravine: lyrics in the serif display face (it reads smaller, hence 1.15×).
+        text, fontFamily = Display, fontSize = size * 1.15f, lineHeight = size * 1.3f,
+        letterSpacing = (-0.005f * size.value).sp, textAlign = align,
         style = lyricStyle(shadow),
     )
 }
@@ -315,8 +316,8 @@ private fun WordLine(
         words.forEachIndexed { k, w ->
             Text(
                 if (k == words.lastIndex) w.text.trimEnd() else w.text,
-                fontSize = size, lineHeight = size * 1.18f, fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.02f * size.value).sp, style = style,
+                fontFamily = Display, fontSize = size * 1.15f, lineHeight = size * 1.3f,
+                letterSpacing = (-0.005f * size.value).sp, style = style,
                 modifier = if (!live) Modifier else Modifier.graphicsLayer {
                     val e = anims[k].value
                     alpha = 0.36f + 0.64f * e

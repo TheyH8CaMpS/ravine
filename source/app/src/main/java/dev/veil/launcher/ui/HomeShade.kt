@@ -108,8 +108,9 @@ private fun ramp(t: Float, stops: FloatArray, values: FloatArray): Float {
 
 private val H_STOPS = floatArrayOf(0f, 0.42f, 0.78f)
 private val H_ALPHA = floatArrayOf(0.94f, 0.6f, 0.05f)
-private val V_STOPS = floatArrayOf(0f, 0.22f, 0.55f, 0.8f, 1f)
-private val V_ALPHA = floatArrayOf(0.5f, 0f, 0.5f, 0.97f, 1f)
+// Ravine: the darkening starts a little higher and is denser behind the rows and dock (Veil: 0.55→0.5, 0.8→0.97).
+private val V_STOPS = floatArrayOf(0f, 0.22f, 0.5f, 0.76f, 1f)
+private val V_ALPHA = floatArrayOf(0.5f, 0f, 0.55f, 0.97f, 1f)
 private val G_STOPS = floatArrayOf(0f, 0.55f, 1f)
 private val G_ALPHA = floatArrayOf(0.16f, 0.05f, 0f)
 

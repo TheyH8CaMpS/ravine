@@ -61,6 +61,9 @@ They're out of scope.
 | D15 | The Shield's display mode is **never** changed by Ravine or its setup: the owner keeps the interface in HDR / Dolby Vision mode because that's tuned for video. Ravine compensates with "Picture depth" (Standard / Rich / Deep, default Deep): a contrast and brightness filter on the backdrop plus an even darkening layer | In HDR mode the TV lifts dark tones, so the interface looked milky |
 | D16 | The Home-button helper replaces only the system's *default* home activity (the stock launcher), never other launcher apps | Veil bounced any HOME-capable app, which made Projectivy (and its settings) impossible to open |
 | D17 | Ravine Ambient is the screensaver and shows the wallpaper library with the Home captions and Picture depth; music still switches it to lyrics / visualizer | Same visual language awake and asleep |
+| D18 | Film grain: a baked 256 px speckle tile (max 8.5% alpha) repeated over the photo on Home and in Ambient; menu toggle, on by default | Vintage/editorial feel at the cost of one flat layer |
+| D19 | Dock: 26 dp icons and 10.5 sp labels (Veil 30 / 11.5). Hold OK → **Move**, then Left/Right slide the app and OK/Back finish | Owner asked for smaller icons and an easy way to reorder |
+| D20 | Lyrics use the serif display face; earthy two-colour visualizer presets come first (Moss, Redwood, Fog Line, Brass and Pine, Dodger Blue, Silver and Black, Purple and Gold) | One visual language across Home, Ambient and music |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 
@@ -127,7 +130,9 @@ reads from one of those, or from what it sees locally:
 
 - CI: `.github/workflows/build.yml`. Secrets: `TMDB_KEY` (required for artwork), `SIMKL_CLIENT_ID`,
   `RAVINE_KEYSTORE_BASE64`, `RAVINE_KEYSTORE_PASSWORD`. Variable: `WEATHER_CITY`.
-- Newest release on the Shield (via the Downloader app):
+- Newest release on the Shield: Downloader app, code **2583510** (aftv.news/2583510 → the link below). Releases are
+  published by commits containing `[release]`.
+- Release link:
   `https://github.com/TheyH8CaMpS/ravine/releases/latest/download/ravine.apk`
 - Local: `cd source && ./gradlew assembleRelease` (JDK 17+, Android SDK 34).
 - Permissions, backup and undo: follow `AGENT_INSTALL.md` (inherited from Veil), with the Shield notes in §4.

@@ -152,8 +152,8 @@ private fun AppMenu(state: LauncherState, sheet: AppSheet) {
             val pinned = state.pinnedApps
             val i = pinned.indexOfFirst { it.pkg == app.pkg }
             add(SheetAction("Open", VeilIcons.Play) { state.launch(app) })
-            if (i > 0) add(SheetAction("Move left", VeilIcons.Left) { state.move(app, -1) })
-            if (i in 0 until pinned.lastIndex) add(SheetAction("Move right", VeilIcons.Right) { state.move(app, +1) })
+            // Ravine: one "Move" mode instead of a single step per menu visit.
+            if (pinned.size > 1 && i >= 0) add(SheetAction("Move", VeilIcons.Right) { state.startMove(app) })
             add(SheetAction("Unpin from Home", VeilIcons.Unpin) { state.unpin(app) })
         } else {
             if (state.isPinned(app)) add(SheetAction("Unpin from Home", VeilIcons.Unpin) { state.unpin(app) })

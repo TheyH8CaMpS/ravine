@@ -201,6 +201,12 @@ private fun VeilPanel(state: LauncherState) {
             onClick = state::cyclePictureDepth,
         )
         MenuButton(
+            icon = VeilIcons.Sparkle,
+            title = "Film grain: " + if (state.filmGrain) "on" else "off",
+            subtitle = "A faint vintage grain over the photo",
+            onClick = state::toggleFilmGrain,
+        )
+        MenuButton(
             icon = VeilIcons.Star,
             title = "Next wallpaper",
             subtitle = state.wallpaper?.let { listOfNotNull(it.title.takeIf(String::isNotBlank), it.collection.takeIf(String::isNotBlank)).joinToString(" · ") }

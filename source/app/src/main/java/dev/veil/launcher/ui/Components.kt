@@ -524,25 +524,31 @@ fun Pill(
 fun dimColor() = LocalContentColor.current.copy(alpha = 0.72f)
 
 @Composable
-fun AppPill(app: AppEntry, onClick: () -> Unit, onLongClick: (() -> Unit)?, modifier: Modifier = Modifier) {
-    Pill(onClick = onClick, onLongClick = onLongClick, modifier = modifier) {
+fun AppPill(app: AppEntry, onClick: () -> Unit, onLongClick: (() -> Unit)?, modifier: Modifier = Modifier, moving: Boolean = false) {
+    // Ravine: a more compact dock (26 dp icons, 10.5 sp labels; Veil used 30 / 11.5).
+    Pill(onClick = onClick, onLongClick = onLongClick, modifier = modifier, padding = DOCK_PADDING) {
+        if (moving) Icon(VeilIcons.Left, contentDescription = "Move left", modifier = Modifier.size(10.dp), tint = LocalContentColor.current)
         val icon = app.icon
         if (icon != null) {
-            Image(icon, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(30.dp).clip(CircleShape))
+            Image(icon, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(DOCK_ICON).clip(CircleShape))
         } else {
-            Box(Modifier.size(30.dp).clip(CircleShape).background(Veil.GlassStrong))
+            Box(Modifier.size(DOCK_ICON).clip(CircleShape).background(Veil.GlassStrong))
         }
-        Text(app.label, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(app.label, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (moving) Icon(VeilIcons.Right, contentDescription = "Move right", modifier = Modifier.size(10.dp), tint = LocalContentColor.current)
     }
 }
 
+private val DOCK_ICON = 26.dp
+private val DOCK_PADDING = PaddingValues(start = 5.dp, end = 14.dp, top = 5.dp, bottom = 5.dp)
+
 @Composable
 fun AllAppsPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Pill(onClick = onClick, modifier = modifier) {
-        Box(Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+    Pill(onClick = onClick, modifier = modifier, padding = DOCK_PADDING) {
+        Box(Modifier.size(DOCK_ICON).clip(CircleShape).background(Color.White.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
             Icon(VeilIcons.Grid, contentDescription = null, modifier = Modifier.size(13.dp), tint = LocalContentColor.current)
         }
-        Text("All apps", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Text("All apps", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
