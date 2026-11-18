@@ -12,7 +12,11 @@ import kotlin.math.roundToInt
  * geolocation is used.
  */
 class Weather(context: Context) {
+    /** Ravine: Fahrenheit where that's the norm (TV region US, Liberia, Myanmar), Celsius elsewhere. */
+    private val fahrenheit: Boolean = java.util.Locale.getDefault().country in setOf("US", "LR", "MM")
+
     enum class Kind { CLEAR, PARTLY, CLOUDY, FOG, DRIZZLE, RAIN, SNOW, THUNDER }
+    /** [tempC] is in the TV region's unit (°F in the US), despite the name kept from Veil. */
     data class Now(val tempC: Int, val kind: Kind, val isDay: Boolean)
     data class Place(val name: String, val region: String, val lat: Double, val lon: Double)
 
@@ -43,7 +47,7 @@ class Weather(context: Context) {
             Http.call(
                 "GET",
                 "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
-                    "&current=temperature_2m,weather_code,is_day&temperature_unit=celsius",
+                    "&current=temperature_2m,weather_code,is_day&temperature_unit=${if (fahrenheit) "fahrenheit" else "celsius"}",
             )
         }.getOrNull() ?: return null
         if (code != 200) return null

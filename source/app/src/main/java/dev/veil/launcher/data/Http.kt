@@ -17,7 +17,7 @@ internal object Http {
             c.requestMethod = method
             c.connectTimeout = 10_000
             c.readTimeout = 15_000
-            c.setRequestProperty("User-Agent", "Ravine/0.1")
+            c.setRequestProperty("User-Agent", dev.veil.launcher.RavineApp.USER_AGENT)
             c.setRequestProperty("Accept", "application/json")
             headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             if (body != null) {

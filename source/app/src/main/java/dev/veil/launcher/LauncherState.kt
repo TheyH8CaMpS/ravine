@@ -152,6 +152,15 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         prefetchWallpaper()
     }
 
+    private var wallpaperFailures = 0
+
+    /** A photo that won't load (moved, blocked, offline) is skipped, up to once around the whole library. */
+    fun onWallpaperResult(ok: Boolean) {
+        if (ok) { wallpaperFailures = 0; return }
+        if (++wallpaperFailures >= wallpapers.all.size.coerceAtLeast(1)) return // offline: stop trying
+        nextWallpaper()
+    }
+
     private fun prefetchWallpaper() {
         val next = wallpapers.at(wallpapers.step + 1) ?: return
         runCatching {

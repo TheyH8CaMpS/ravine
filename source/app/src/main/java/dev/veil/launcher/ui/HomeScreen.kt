@@ -131,7 +131,10 @@ fun HomeScreen(state: LauncherState) {
     Box(Modifier.fillMaxSize().background(Veil.Bg)) {
         // The drift also holds still while Veil Ambient covers Home (nobody can see it, and it cost frames).
         // (Lite mode: no drift at all; on slow TVs redrawing the full-screen artwork costs frames.)
-        Backdrop(backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE, depth = state.pictureDepth)
+        Backdrop(
+            backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE, depth = state.pictureDepth,
+            onResult = { url, ok -> if (url == wallpaper?.url) state.onWallpaperResult(ok) },
+        )
         // Frost: the pre-blurred artwork fades in over the real one (cheap; a live blur is too slow here).
         val fi = frostImg
         if (fi != null) {
@@ -165,7 +168,12 @@ fun HomeScreen(state: LauncherState) {
 }
 
 @Composable
-private fun Backdrop(url: String?, paused: Boolean = false, depth: Int = PictureDepth.STANDARD) {
+private fun Backdrop(
+    url: String?,
+    paused: Boolean = false,
+    depth: Int = PictureDepth.STANDARD,
+    onResult: (url: String, ok: Boolean) -> Unit = { _, _ -> },
+) {
     val filter = remember(depth) { PictureDepth.filter(depth) }
     val context = LocalContext.current
     Crossfade(targetState = url, animationSpec = tween(600), label = "backdrop") { u ->
@@ -200,6 +208,8 @@ private fun Backdrop(url: String?, paused: Boolean = false, depth: Int = Picture
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 colorFilter = filter,
+                onSuccess = { onResult(u, true) },
+                onError = { onResult(u, false) },
                 modifier = Modifier.fillMaxSize().graphicsLayer {
                     val d = drift.floatValue
                     val z = 1f + 0.08f * d
