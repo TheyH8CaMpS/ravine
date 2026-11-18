@@ -393,6 +393,60 @@ internal fun SongProgress(track: NowPlaying.Track, width: androidx.compose.ui.un
     }
 }
 
+/** Ravine: a slow slideshow of the wallpaper library with the same editorial captions as Home. */
+@Composable
+private fun WallpaperSlides(walls: List<dev.veil.launcher.data.Wallpaper>) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var index by remember { mutableIntStateOf(0) }
+    var failures by remember { mutableIntStateOf(0) }
+    LaunchedEffect(walls) {
+        while (walls.size > 1) { delay(40_000); index = (index + 1) % walls.size }
+    }
+    val depth = remember {
+        context.getSharedPreferences("veil", android.content.Context.MODE_PRIVATE).getInt("picture_depth", PictureDepth.DEEP)
+    }
+    val filter = remember(depth) { PictureDepth.filter(depth) }
+    val w = walls[index]
+    Box(Modifier.fillMaxSize().background(Veil.Bg)) {
+        Crossfade(targetState = w, animationSpec = tween(3000), label = "wall-slides") { it ->
+            val zoom = remember { Animatable(1f) }
+            LaunchedEffect(Unit) { zoom.animateTo(1.08f, tween(44_000, easing = LinearEasing)) }
+            AsyncImage(
+                model = coil.request.ImageRequest.Builder(context).data(it.url).size(1920, 1080).build(),
+                contentDescription = null, contentScale = ContentScale.Crop, colorFilter = filter,
+                onSuccess = { failures = 0 },
+                // Skip a photo that won't load (once around the library at most, e.g. offline).
+                onError = { if (++failures < walls.size) index = (index + 1) % walls.size },
+                modifier = Modifier.fillMaxSize().graphicsLayer(
+                    scaleX = zoom.value, scaleY = zoom.value, translationX = (zoom.value - 1f) * -260f,
+                ),
+            )
+        }
+        val veil = PictureDepth.extraShade(depth)
+        if (veil > 0f) Box(Modifier.fillMaxSize().background(Veil.Bg.copy(alpha = veil)))
+        SlideshowShade(Veil.Bg)
+        AnimatedContent(
+            targetState = w,
+            transitionSpec = { fadeIn(tween(1800, delayMillis = 600)) togetherWith fadeOut(tween(800)) },
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 56.dp),
+            label = "wall-text",
+        ) { it ->
+            Column(Modifier.widthIn(max = 620.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (it.collection.isNotBlank()) {
+                    Text(it.collection.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = Veil.Accent)
+                }
+                Text(it.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp, color = Veil.Text)
+                it.author?.let { a ->
+                    Text(
+                        "Photograph by $a", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.75f),
+                    )
+                }
+            }
+        }
+    }
+}
+
 private fun clock(ms: Long): String {
     val s = (ms.coerceAtLeast(0) / 1000).toInt()
     return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
@@ -400,6 +454,10 @@ private fun clock(ms: Long): String {
 
 @Composable
 private fun ArtworkFace(items: List<WatchItem>) {
+    // Ravine: the screensaver shows your wallpaper library (offline copy of the feed), like Home.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val walls = remember { runCatching { dev.veil.launcher.data.Wallpapers(context).all.shuffled() }.getOrDefault(emptyList()) }
+    if (walls.isNotEmpty()) { WallpaperSlides(walls); return }
     val withArt = remember(items) { items.filter { it.backdrop != null } }
     var index by remember(withArt) { mutableIntStateOf(0) }
     LaunchedEffect(withArt) {

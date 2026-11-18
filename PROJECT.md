@@ -59,6 +59,8 @@ They're out of scope.
 | D13 | Instrument Serif (OFL) is the display face: clock and wallpaper titles. Manrope stays for UI text | The editorial/vintage direction in §2 |
 | D14 | Themes: Ravine (forest + brass, default), Canyon (bark + terracotta), Chavez (night blue). Veil's themes stay selectable | Text colour is warm "bone" instead of cool white |
 | D15 | The Shield's display mode is **never** changed by Ravine or its setup: the owner keeps the interface in HDR / Dolby Vision mode because that's tuned for video. Ravine compensates with "Picture depth" (Standard / Rich / Deep, default Deep): a contrast and brightness filter on the backdrop plus an even darkening layer | In HDR mode the TV lifts dark tones, so the interface looked milky |
+| D16 | The Home-button helper replaces only the system's *default* home activity (the stock launcher), never other launcher apps | Veil bounced any HOME-capable app, which made Projectivy (and its settings) impossible to open |
+| D17 | Ravine Ambient is the screensaver and shows the wallpaper library with the Home captions and Picture depth; music still switches it to lyrics / visualizer | Same visual language awake and asleep |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

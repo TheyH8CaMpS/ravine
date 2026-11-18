@@ -43,16 +43,19 @@ class HomeButtonService : AccessibilityService() {
     }
 
     /**
-     * The home screens other than Veil installed on this TV (package, activity), e.g. Android TV's
-     * com.google.android.tvlauncher or a TV maker's own launcher. Android's boot-time "FallbackHome"
-     * in Settings is left out.
+     * The TV's *default* home screen (package, activity), e.g. the Shield's com.google.android.tvlauncher.
+     * Ravine: only the system default is replaced. Veil listed every app that *can* be a home screen, which
+     * also bounced launcher apps like Projectivy straight back to Ravine whenever you opened them (or their
+     * settings) from the apps list. Android's boot-time "FallbackHome" in Settings is left out.
      */
     private val otherHomes: List<Pair<String, String>> by lazy {
         runCatching {
-            packageManager.queryIntentActivities(
+            val r = packageManager.resolveActivity(
                 Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY,
-            ).map { it.activityInfo.packageName to it.activityInfo.name }
-                .filter { (p, _) -> p != packageName && p != "com.android.settings" && p != "com.android.tv.settings" }
+            ) ?: return@runCatching emptyList()
+            val p = r.activityInfo.packageName
+            if (p == packageName || p == "android" || p == "com.android.settings" || p == "com.android.tv.settings") emptyList()
+            else listOf(p to r.activityInfo.name)
         }.getOrDefault(emptyList())
     }
 
