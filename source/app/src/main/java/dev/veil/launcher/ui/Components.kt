@@ -3,6 +3,7 @@
 package dev.veil.launcher.ui
 
 import android.text.format.DateFormat
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -181,6 +182,69 @@ fun Clock(fontSize: TextUnit = 24.sp) {
     Text(time, fontSize = fontSize, fontFamily = Display, fontWeight = FontWeight.Normal, letterSpacing = 0.2.sp)
 }
 
+/**
+ * Ravine's game strip: floats in the top bar like the wordmark (no pill until focused). A dot in the team's
+ * colour, the matchup or score in the serif, and the time / clock / FINAL in small caps.
+ *   before:  ● Lakers vs Jazz   TONIGHT 7:00 PM
+ *   live:    ● Lakers 54 · Jazz 50   4:12 - 3RD
+ *   after:   ● Lakers 112 · Jazz 104   FINAL · W
+ */
+@Composable
+fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit) {
+    val context = LocalContext.current
+    var focused by remember { mutableStateOf(false) }
+    val live = game.state == dev.veil.launcher.data.Game.State.LIVE
+    val title = when (game.state) {
+        dev.veil.launcher.data.Game.State.PRE -> game.matchup
+        else -> "${game.team.name} ${game.ourScore ?: 0} · ${game.opponent} ${game.theirScore ?: 0}"
+    }
+    val note = when (game.state) {
+        dev.veil.launcher.data.Game.State.PRE -> gameStartText(context, game.startMs, now)
+        dev.veil.launcher.data.Game.State.LIVE -> game.detail
+        dev.veil.launcher.data.Game.State.FINAL -> "Final" + when (game.won) { true -> " · W"; false -> " · L"; null -> "" }
+    }
+    // While live, the team dot breathes slowly.
+    val pulse = if (live) {
+        val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "live")
+        t.animateFloat(1f, 0.35f, androidx.compose.animation.core.infiniteRepeatable(tween(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "dot").value
+    } else 1f
+    Surface(
+        onClick = { Sfx.select(); onClick() },
+        modifier = Modifier.focusSound(1.12f).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent, contentColor = Veil.Text,
+            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(Color(game.team.color)))
+            Spacer(Modifier.width(8.dp))
+            Text(title, fontFamily = Display, fontSize = 17.sp, maxLines = 1)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                note.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp, maxLines = 1,
+                color = if (focused) Veil.Ink.copy(alpha = 0.7f) else Veil.Accent,
+            )
+        }
+    }
+}
+
+/** "TONIGHT 7:00 PM", "TODAY 1:10 PM", "TOMORROW 4:25 PM", "STARTED". */
+fun gameStartText(context: android.content.Context, startMs: Long, now: Long): String {
+    if (startMs <= now) return "Starting"
+    val zone = java.time.ZoneId.systemDefault()
+    val start = java.time.Instant.ofEpochMilli(startMs).atZone(zone)
+    val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val time = DateFormat.getTimeFormat(context).format(Date(startMs))
+    return when (start.toLocalDate()) {
+        today -> (if (start.hour >= 17) "Tonight " else "Today ") + time
+        today.plusDays(1) -> "Tomorrow $time"
+        else -> start.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) + " " + time
+    }
+}
+
 @Composable
 fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(34.dp)) {
@@ -210,6 +274,8 @@ fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
             LaunchedEffect(privacyFocused) {
                 if (privacyFocused) { delay(200); state.onPrivacyFocus(true) } else state.onPrivacyFocus(false)
             }
+            // Ravine game day: today's game, its live score, or the final (PROJECT.md D27).
+            state.game?.let { GameStrip(it, state.minuteTick, onClick = state::openGame) }
             // Ravine: the ad-blocking pill is off unless turned on in the menu (PROJECT.md D4).
             if (state.showPrivacy) PrivacyPill(state, Modifier.onFocusChanged { privacyFocused = it.isFocused })
             Surface(

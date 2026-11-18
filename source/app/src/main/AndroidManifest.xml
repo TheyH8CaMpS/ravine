@@ -29,6 +29,11 @@
             <category android:name="android.intent.category.HOME" />
         </intent>
         <package android:name="com.nuvio.tv" />
+        <!-- Ravine game day: lets Ravine see whether Courtside can open a game (docs/courtside.md). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="courtside" />
+        </intent>
     </queries>
 
     <application

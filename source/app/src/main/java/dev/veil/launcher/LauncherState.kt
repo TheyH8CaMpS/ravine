@@ -19,6 +19,7 @@ import dev.veil.launcher.data.Tmdb
 import dev.veil.launcher.data.Trakt
 import dev.veil.launcher.data.Wallpapers
 import dev.veil.launcher.data.LocalHistory
+import dev.veil.launcher.data.GameDay
 import dev.veil.launcher.data.VeilCache
 import dev.veil.launcher.data.WatchItem
 import dev.veil.launcher.ui.ThemeState
@@ -139,6 +140,12 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     /** The photo behind Home while no Continue Watching card has focus. */
     var wallpaper by mutableStateOf(wallpapers.at(wallpapers.step))
         private set
+
+    /** Ravine game day: the team's collection while its game is on (if team wallpapers are on). */
+    private fun preferredCollection(now: Long = System.currentTimeMillis()): String? =
+        game?.takeIf { teamWallpapers && it.inWindow(now) }?.team?.collection
+    private var appliedPreference: String? = null
+    private fun wallpaperAt(step: Int) = wallpapers.at(step, prefer = preferredCollection())
     /** Which part of Home has focus: "cw" (Continue Watching), "app", "all-apps"… Drives the backdrop. */
     var focusArea by mutableStateOf("")
     private var lastWallpaperFeed = 0L
@@ -147,7 +154,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     /** Next photo now (also used by the menu's "Next wallpaper"), and warm the cache for the one after. */
     fun nextWallpaper() {
         wallpapers.step = wallpapers.step + 1
-        wallpaper = wallpapers.at(wallpapers.step)
+        wallpaper = wallpaperAt(wallpapers.step)
         lastRotate = System.currentTimeMillis()
         prefetchWallpaper()
     }
@@ -162,7 +169,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     }
 
     private fun prefetchWallpaper() {
-        val next = wallpapers.at(wallpapers.step + 1) ?: return
+        val next = wallpaperAt(wallpapers.step + 1) ?: return
         runCatching {
             coil.Coil.imageLoader(context).enqueue(
                 coil.request.ImageRequest.Builder(context).data(next.url).size(1920, 1080).build(),
@@ -176,8 +183,16 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
             lastWallpaperFeed = now
             scope.launch {
                 val ok = withContext(Dispatchers.IO) { wallpapers.refresh() }
-                if (ok && wallpaper == null) { wallpaper = wallpapers.at(wallpapers.step); prefetchWallpaper() }
+                if (ok && wallpaper == null) { wallpaper = wallpaperAt(wallpapers.step); prefetchWallpaper() }
             }
+        }
+        // Game day starting or ending: switch to (or away from) the team's photos right away.
+        val prefer = preferredCollection(now)
+        if (prefer != appliedPreference) {
+            appliedPreference = prefer
+            wallpaper = wallpaperAt(wallpapers.step)
+            lastRotate = now
+            prefetchWallpaper()
         }
         val idleOnHome = screen == Screen.HOME && !ambient && focusArea != "cw"
         if (idleOnHome && now - lastRotate >= wallpapers.rotateMinutes * 60_000L) nextWallpaper()
@@ -236,6 +251,67 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun unpin(app: AppEntry) = savePins(pins - app.pkg)
 
     /** Moves a pinned app one step left (-1) or right (+1) among the apps that are installed. */
+    // ---- Game day (Ravine) -----------------------------------------------------------------------
+
+    /** The game on the strip (see GameDay): next start today, live score, or a recent final. */
+    var game by mutableStateOf<dev.veil.launcher.data.Game?>(GameDay.current)
+        private set
+    private var gameBusy = false
+
+    private fun tickGames() {
+        if (gameBusy || gameTeams.isEmpty()) { if (gameTeams.isEmpty()) game = null; return }
+        gameBusy = true
+        scope.launch {
+            try {
+                game = withContext(Dispatchers.IO) { runCatching { GameDay.tick(context) }.getOrNull() }
+            } finally { gameBusy = false }
+        }
+    }
+
+    var gameTeams by mutableStateOf(GameDay.enabledTeams(context))
+        private set
+
+    fun toggleTeam(key: String) {
+        gameTeams = if (key in gameTeams) gameTeams - key else gameTeams + key
+        prefs.edit().putStringSet("game_teams", gameTeams).apply()
+        tickGames()
+    }
+
+    var teamWallpapers by mutableStateOf(prefs.getBoolean("team_wallpapers", true))
+        private set
+
+    fun toggleTeamWallpapers() {
+        teamWallpapers = !teamWallpapers
+        prefs.edit().putBoolean("team_wallpapers", teamWallpapers).apply()
+    }
+
+    /** The app the game strip opens (default TiviMate). */
+    var watchWith by mutableStateOf(prefs.getString("watch_with", "ar.tvplayer.tv") ?: "ar.tvplayer.tv")
+        private set
+
+    val watchWithLabel: String get() = apps.firstOrNull { it.pkg == watchWith }?.label ?: "TiviMate"
+
+    fun cycleWatchWith() {
+        val choices = pinnedApps.map { it.pkg }.ifEmpty { listOf(watchWith) }
+        watchWith = choices[(choices.indexOf(watchWith) + 1).mod(choices.size)]
+        prefs.edit().putString("watch_with", watchWith).apply()
+    }
+
+    /**
+     * OK on the game strip: Courtside's game page when Courtside is installed (docs/courtside.md),
+     * otherwise the "watch with" app.
+     */
+    fun openGame() {
+        val g = game ?: return
+        val courtside = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
+            "courtside://game?league=${g.team.league.name.lowercase()}&espn=${g.id}&team=${g.team.key}",
+        )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (courtside.resolveActivity(context.packageManager) != null && start(courtside)) return
+        val pm = context.packageManager
+        (pm.getLeanbackLaunchIntentForPackage(watchWith) ?: pm.getLaunchIntentForPackage(watchWith))
+            ?.let { start(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+
     // ---- Ravine menu settings ------------------------------------------------------------------
 
     var ambientMinutes by mutableStateOf(prefs.getInt("ambient_minutes", 10))
@@ -434,6 +510,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         dnsResumeAt = dns.resumeAt
         val now = System.currentTimeMillis()
         minuteTick = now
+        tickGames()
         tickWallpapers(now)
         // A pause that ended while the alarm was delayed: resume now.
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()

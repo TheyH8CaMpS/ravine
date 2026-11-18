@@ -102,6 +102,8 @@ fun AmbientScreen(
     seasonal: Boolean = true,
     /** Show synced lyrics in Veil music mode (when the song has them). */
     lyrics: Boolean = true,
+    /** Ravine game day: shown in the corner while live and for a while after the final. */
+    game: dev.veil.launcher.data.Game? = null,
 ) {
     val season = if (seasonal) currentSeason() else Season.NONE
     val sunday = java.time.LocalDate.now().dayOfWeek == java.time.DayOfWeek.SUNDAY
@@ -153,6 +155,25 @@ fun AmbientScreen(
                 Icon(weatherIcon(w), contentDescription = null, modifier = Modifier.size(22.dp), tint = Veil.Text.copy(alpha = 0.9f))
                 Spacer(Modifier.width(6.dp))
                 Text("${w.tempC}°", fontSize = 24.sp, color = Veil.Text.copy(alpha = 0.9f))
+            }
+        }
+        // Ravine game day: the score, quietly, in the corner.
+        if (game != null && game.state != dev.veil.launcher.data.Game.State.PRE) {
+            Row(
+                Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 48.dp).alpha(chrome),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(7.dp).clip(CircleShape).background(Color(game.team.color)))
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    "${game.team.name} ${game.ourScore ?: 0} · ${game.opponent} ${game.theirScore ?: 0}",
+                    fontFamily = Display, fontSize = 18.sp, color = Veil.Text.copy(alpha = 0.85f),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    (if (game.state == dev.veil.launcher.data.Game.State.FINAL) "Final" else game.detail).uppercase(),
+                    fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp, color = Veil.Accent,
+                )
             }
         }
         // Ravine: the ad-blocking line only when its pill is turned on in the menu (PROJECT.md D4).
@@ -458,7 +479,14 @@ private fun clock(ms: Long): String {
 private fun ArtworkFace(items: List<WatchItem>) {
     // Ravine: the screensaver shows your wallpaper library (offline copy of the feed), like Home.
     val context = androidx.compose.ui.platform.LocalContext.current
-    val walls = remember { runCatching { dev.veil.launcher.data.Wallpapers(context).all.shuffled() }.getOrDefault(emptyList()) }
+    // Game day (team wallpapers on): only the team's photos, as on Home.
+    val walls = remember {
+        val all = runCatching { dev.veil.launcher.data.Wallpapers(context).all.shuffled() }.getOrDefault(emptyList())
+        val teamWalls = context.getSharedPreferences("veil", android.content.Context.MODE_PRIVATE).getBoolean("team_wallpapers", true)
+        val prefer = dev.veil.launcher.data.GameDay.current
+            ?.takeIf { teamWalls && it.inWindow(System.currentTimeMillis()) }?.team?.collection
+        prefer?.let { p -> all.filter { it.collection.equals(p, ignoreCase = true) } }?.takeIf { it.isNotEmpty() } ?: all
+    }
     if (walls.isNotEmpty()) { WallpaperSlides(walls); return }
     val withArt = remember(items) { items.filter { it.backdrop != null } }
     var index by remember(withArt) { mutableIntStateOf(0) }

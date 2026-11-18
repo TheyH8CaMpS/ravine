@@ -237,6 +237,13 @@ private fun VeilPanel(state: LauncherState) {
             IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
 
+            Section("V", "Game day")
+            dev.veil.launcher.data.MyTeams.all.forEach { t ->
+                IndexRow(t.name, if (t.key in state.gameTeams) "On" else "Off", swatch = Color(t.color)) { state.toggleTeam(t.key) }
+            }
+            IndexRow("Team wallpapers", if (state.teamWallpapers) "On" else "Off", onClick = state::toggleTeamWallpapers)
+            IndexRow("Watch games in", state.watchWithLabel, onClick = state::cycleWatchWith)
+
             Spacer(Modifier.height(10.dp))
             Text(
                 "Back to close", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,

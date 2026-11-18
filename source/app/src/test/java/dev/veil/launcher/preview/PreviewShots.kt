@@ -55,21 +55,24 @@ class PreviewShots {
 
     @Before fun setUp() {
         assumeTrue("previews only with -Ppreviews", System.getProperty("ravine.previews") == "true")
-        val wall = photo("wall.jpg"); val la = photo("la.jpg")
+        val wall = photo("wall.jpg"); val la = photo("la.jpg"); val lakers = photo("lakers.jpg")
         Coil.setImageLoader(
             ImageLoader.Builder(context).components {
                 add(object : Interceptor {
                     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
                         val data = chain.request.data.toString()
-                        val bmp = if ("la" in data) la else wall
+                        val bmp = when { "lakers" in data -> lakers; "la.jpg" in data -> la; else -> wall }
                         return SuccessResult(BitmapDrawable(context.resources, bmp), chain.request, DataSource.MEMORY)
                     }
                 })
             }.build(),
         )
         File(context.filesDir, "wallpapers.json").writeText(
-            """[{"location":"Moody green","title":"Fog in the green valley","author":"V2osk","url_img":"https://preview/wall.jpg"}]""",
+            """[{"location":"Moody green","title":"Fog in the green valley","author":"V2osk","url_img":"https://preview/wall.jpg"},
+               {"location":"Lakers","title":"Purple and gold night","author":"Elmar78","url_img":"https://preview/lakers.jpg"}]""",
         )
+        // No network in previews: the wallpaper feed "fails", so the test feed above stays in place.
+        context.getSharedPreferences("ravine_wallpapers", Context.MODE_PRIVATE).edit().putString("feed", "http://127.0.0.1:9/none").commit()
         context.getSharedPreferences("veil", Context.MODE_PRIVATE).edit()
             .putString("pins", APPS.joinToString("|") { it.first }).commit()
     }
@@ -80,6 +83,7 @@ class PreviewShots {
     private fun newState(): LauncherState {
         val state = LauncherState(context, CoroutineScope(SupervisorJob() + Dispatchers.Main))
         state.apps = APPS.map { (pkg, label, color) -> AppEntry(pkg, label, null, icon(label, color), Intent()) }
+        state.refreshExtras() // applies game day (team wallpapers) like the minute tick does
         state.items = listOf(
             WatchItem(
                 isMovie = true, title = "The Killing of a Sacred Deer", traktId = null, imdb = "tt5715874", tmdb = 399057,
@@ -132,6 +136,42 @@ class PreviewShots {
     @Test fun ambient() = shoot("ambient", newState()) { it.startAmbient() }
 
     @Test fun vizSettings() = shoot("viz-settings", newState()) { it.vizSettingsOpen = true }
+
+    // ---- Game day: a fake source, so previews don't depend on ESPN ----
+
+    private fun gameDay(state: dev.veil.launcher.data.Game.State, ours: Int? = null, theirs: Int? = null, detail: String = "") {
+        val now = System.currentTimeMillis()
+        val start = when (state) {
+            dev.veil.launcher.data.Game.State.PRE -> now + 2 * 60 * 60_000L
+            dev.veil.launcher.data.Game.State.LIVE -> now - 70 * 60_000L
+            dev.veil.launcher.data.Game.State.FINAL -> now - 150 * 60_000L
+        }
+        val game = dev.veil.launcher.data.Game(
+            id = "401910100", team = dev.veil.launcher.data.MyTeams.LAKERS, opponent = "Jazz", opponentAbbr = "UTAH",
+            home = true, startMs = start, state = state, detail = detail, ourScore = ours, theirScore = theirs,
+            broadcast = "Spectrum Sports Net",
+        )
+        dev.veil.launcher.data.GameDay.reset()
+        dev.veil.launcher.data.GameDay.source = object : dev.veil.launcher.data.GameSource {
+            override fun schedule(team: dev.veil.launcher.data.Team) = if (team.key == "lakers") listOf(game) else emptyList()
+            override fun refresh(game: dev.veil.launcher.data.Game) = game
+        }
+        dev.veil.launcher.data.GameDay.tick(context)
+    }
+
+    @Test fun gameTonight() { gameDay(dev.veil.launcher.data.Game.State.PRE); shoot("game-tonight", newState()) }
+
+    @Test fun gameLive() {
+        gameDay(dev.veil.launcher.data.Game.State.LIVE, 54, 50, "4:12 - 3rd")
+        shoot("game-live", newState())
+    }
+
+    @Test fun gameLiveAmbient() {
+        gameDay(dev.veil.launcher.data.Game.State.LIVE, 54, 50, "4:12 - 3rd")
+        shoot("game-live-ambient", newState()) { it.startAmbient() }
+    }
+
+    @Test fun gameMenu() { gameDay(dev.veil.launcher.data.Game.State.PRE); shoot("game-menu", newState()) { it.veilMenuOpen = true } }
 
     private companion object {
         val APPS = listOf(

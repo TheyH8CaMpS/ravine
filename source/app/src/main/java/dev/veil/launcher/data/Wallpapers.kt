@@ -45,9 +45,12 @@ class Wallpapers(context: Context) {
         return true
     }
 
-    /** The wallpaper for step [step] of today's shuffled order. */
-    fun at(step: Int, day: Long = System.currentTimeMillis() / 86_400_000L): Wallpaper? {
-        val list = all
+    /**
+     * The wallpaper for step [step] of today's shuffled order. With [prefer] (a collection, e.g. "Lakers" on
+     * game day), only that collection's photos, if it has any.
+     */
+    fun at(step: Int, day: Long = System.currentTimeMillis() / 86_400_000L, prefer: String? = null): Wallpaper? {
+        val list = prefer?.let { p -> all.filter { it.collection.equals(p, ignoreCase = true) } }?.takeIf { it.isNotEmpty() } ?: all
         if (list.isEmpty()) return null
         val order = list.indices.shuffled(kotlin.random.Random(day))
         return list[order[Math.floorMod(step, list.size)]]

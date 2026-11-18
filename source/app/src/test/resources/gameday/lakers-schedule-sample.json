@@ -1,0 +1,182 @@
+{
+ "events": [
+  {
+   "id": "401910005",
+   "date": "2026-11-18T04:00Z",
+   "shortName": "CHA @ LAL",
+   "competitions": [
+    {
+     "status": {
+      "clock": 300.0,
+      "displayClock": "5:00",
+      "period": 5,
+      "type": {
+       "id": "3",
+       "name": "STATUS_FINAL",
+       "state": "post",
+       "completed": true,
+       "description": "Final",
+       "detail": "Final/OT",
+       "shortDetail": "Final/OT",
+       "altDetail": "OT"
+      }
+     },
+     "broadcasts": [
+      {
+       "media": {
+        "shortName": "Spectrum Sports Net"
+       }
+      },
+      {
+       "media": {
+        "shortName": "Spectrum Sports Net +"
+       }
+      }
+     ],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": {
+        "value": 118.0,
+        "displayValue": "118"
+       },
+       "team": {
+        "id": "13",
+        "abbreviation": "LAL",
+        "displayName": "Los Angeles Lakers",
+        "shortDisplayName": "Lakers"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": {
+        "value": 114.0,
+        "displayValue": "114"
+       },
+       "team": {
+        "id": "30",
+        "abbreviation": "CHA",
+        "displayName": "Charlotte Hornets",
+        "shortDisplayName": "Hornets"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401910017",
+   "date": "2026-11-19T03:00Z",
+   "shortName": "UTAH @ LAL",
+   "competitions": [
+    {
+     "status": {
+      "clock": 0.0,
+      "displayClock": "0.0",
+      "period": 0,
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Wed, November 18th at 10:00 PM EST",
+       "shortDetail": "11/18 - 10:00 PM EST"
+      }
+     },
+     "broadcasts": [
+      {
+       "media": {
+        "shortName": "Spectrum Sports Net"
+       }
+      },
+      {
+       "media": {
+        "shortName": "Spectrum Sports Net +"
+       }
+      }
+     ],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": null,
+       "team": {
+        "id": "13",
+        "abbreviation": "LAL",
+        "displayName": "Los Angeles Lakers",
+        "shortDisplayName": "Lakers"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": null,
+       "team": {
+        "id": "26",
+        "abbreviation": "UTAH",
+        "displayName": "Utah Jazz",
+        "shortDisplayName": "Jazz"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909313",
+   "date": "2026-11-21T03:00Z",
+   "shortName": "SAC @ LAL",
+   "competitions": [
+    {
+     "status": {
+      "clock": 0.0,
+      "displayClock": "0.0",
+      "period": 0,
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Fri, November 20th at 10:00 PM EST",
+       "shortDetail": "11/20 - 10:00 PM EST"
+      }
+     },
+     "broadcasts": [
+      {
+       "media": {
+        "shortName": "Spectrum Sports Net"
+       }
+      },
+      {
+       "media": {
+        "shortName": "Spectrum Sports Net +"
+       }
+      }
+     ],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": null,
+       "team": {
+        "id": "13",
+        "abbreviation": "LAL",
+        "displayName": "Los Angeles Lakers",
+        "shortDisplayName": "Lakers"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": null,
+       "team": {
+        "id": "23",
+        "abbreviation": "SAC",
+        "displayName": "Sacramento Kings",
+        "shortDisplayName": "Kings"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

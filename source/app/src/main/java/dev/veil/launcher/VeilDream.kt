@@ -99,6 +99,14 @@ class VeilDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
         var items by remember { mutableStateOf(VeilCache.items) }
         var weather by remember { mutableStateOf(VeilCache.weather) }
         var blocked by remember { mutableStateOf(VeilCache.blocked) }
+        // Ravine game day: Home isn't running while the system screensaver is, so keep the score fresh here.
+        var game by remember { mutableStateOf(dev.veil.launcher.data.GameDay.current) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                game = withContext(Dispatchers.IO) { runCatching { dev.veil.launcher.data.GameDay.tick(ctx) }.getOrNull() }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
         // Fill anything the home screen hasn't loaded yet (e.g. after a reboot).
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
@@ -118,6 +126,7 @@ class VeilDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
             blocked = blocked,
             dnsOn = dns.isOn,
             weeklyBlocked = VeilCache.weeklyBlocked,
+            game = game,
             seasonal = remember { ctx.getSharedPreferences("veil", MODE_PRIVATE).getBoolean("seasonal", true) },
             lyrics = remember { ctx.getSharedPreferences("veil", MODE_PRIVATE).getBoolean("lyrics_music", true) },
             visualizer = remember {
