@@ -107,7 +107,8 @@ reads from one of those, or from what it sees locally:
   Shield's Home button yet.
 - **M2: Watching.** `WatchSource` refactor (split `LauncherState.kt`), local Nuvio history, Simkl reader,
   artwork-on-focus. Ambient screensaver uses the wallpaper library.
-- **M3: Take over Home.** ADB session (backup + undo script first), Home-button service on, Projectivy override off.
+- **M3: Take over Home.** ✅ 2026-11-18: Home button → Ravine via its accessibility helper (Projectivy
+  stays installed as a fallback), Ravine Ambient set as the screensaver. Original plan: ADB session (backup + undo script first), Home-button service on, Projectivy override off.
 - **M4: Polish on the Shield.** GL backdrop layer (live blur, grain, vignette), visualizer at a higher
   internal resolution, Coil memory tuned for 3 GB, a baseline profile, in-app "update available" from
   GitHub Releases.
