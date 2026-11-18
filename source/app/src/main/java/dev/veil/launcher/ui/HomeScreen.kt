@@ -426,9 +426,10 @@ internal fun TitleOrLogo(item: WatchItem, fontSize: androidx.compose.ui.unit.Tex
                 modifier = Modifier.padding(top = 4.dp, bottom = 6.dp).sizeIn(maxWidth = 440.dp, maxHeight = maxLogoHeight),
             )
         } else {
+            // Ravine: titles without a logo use the serif display face, like the wallpaper captions.
             Text(
-                item.title, fontSize = fontSize, lineHeight = fontSize, fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-1.6).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                item.title, fontFamily = Display, fontSize = fontSize * 1.08f, lineHeight = fontSize * 1.1f,
+                letterSpacing = (-0.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
     }

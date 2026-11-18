@@ -713,6 +713,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
             "com.teamsmart.videomanager.tv", // SmartTube (stable)
             "com.liskovsoft.smarttubetv.beta", // SmartTube (beta)
             NUVIO,
+            "au.com.shiftyjelly.pocketcasts", // Pocket Casts
             "com.bambuna.podcastaddict", // Podcast Addict
         )
     }
