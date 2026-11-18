@@ -68,8 +68,8 @@ They're out of scope.
 | D22 | Dock apps float on the photo: no pill or outline; focus adds a thin bone ring, a slight lift and the app name | Owner's preference (like their Projectivy setup) |
 | D23 | Ambient starts after "Starts after" minutes (default 10; 2/5/10/15/30/never), with or without music | Veil's 30 s with music felt too soon |
 | D24 | Screen previews: Robolectric renders Home, the menu and Ambient to PNGs at 1920×1080 (`PreviewShots`, run with `-Ppreviews`), so design changes are checked without the TV | Owner asked for previews instead of photos |
-| D25 | Visualizer settings is a layer inside the main window (focus trapped, Back closes), not a Dialog | On the Shield, the live GLSurfaceView in a separate dialog window never got input focus → ANR ("does not have a focused window") and Android killed Ravine. Never put a GLSurfaceView in a Dialog here |
-| D26 | Lyrics: if no LRCLIB version is within 6 s of the song, use the closest within 25 s as untimed lyrics | Different cuts of the same song (e.g. "the cops are coming") showed no lyrics at all |
+| D25 | Visualizer settings is a layer inside the main window (focus trapped, Back closes), not a Dialog | On the Shield, the live GLSurfaceView in a separate dialog window never got input focus → ANR ("does not have a focused window") and Android killed Ravine. Never put a GLSurfaceView in a Dialog here. Verified fixed on the Shield (build 15) |
+| D26 | Lyrics: if no LRCLIB version is within 6 s of the song, use the closest within 25 s as untimed lyrics | Different cuts of the same song (e.g. "the cops are coming") showed no lyrics at all. Verified on the Shield (build 15) |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 
