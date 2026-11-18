@@ -139,7 +139,7 @@ class PreviewShots {
 
     // ---- Game day: a fake source, so previews don't depend on ESPN ----
 
-    private fun gameDay(state: dev.veil.launcher.data.Game.State, ours: Int? = null, theirs: Int? = null, detail: String = "") {
+    private fun gameDay(state: dev.veil.launcher.data.Game.State, ours: Int? = null, theirs: Int? = null, detail: String = "", channel: String? = null) {
         val now = System.currentTimeMillis()
         val start = when (state) {
             dev.veil.launcher.data.Game.State.PRE -> now + 2 * 60 * 60_000L
@@ -149,14 +149,20 @@ class PreviewShots {
         val game = dev.veil.launcher.data.Game(
             id = "401910100", team = dev.veil.launcher.data.MyTeams.LAKERS, opponent = "Jazz", opponentAbbr = "UTAH",
             home = true, startMs = start, state = state, detail = detail, ourScore = ours, theirScore = theirs,
-            broadcast = "Spectrum Sports Net",
+            broadcast = "Spectrum Sports Net", channel = channel,
         )
         dev.veil.launcher.data.GameDay.reset()
+        dev.veil.launcher.data.GameDay.decorateWithCourtside = false
         dev.veil.launcher.data.GameDay.source = object : dev.veil.launcher.data.GameSource {
             override fun schedule(team: dev.veil.launcher.data.Team) = if (team.key == "lakers") listOf(game) else emptyList()
             override fun refresh(game: dev.veil.launcher.data.Game) = game
         }
         dev.veil.launcher.data.GameDay.tick(context)
+    }
+
+    @Test fun gameTonightCourtside() {
+        gameDay(dev.veil.launcher.data.Game.State.PRE, channel = "512 · Spectrum SportsNet LA")
+        shoot("game-tonight-courtside", newState())
     }
 
     @Test fun gameTonight() { gameDay(dev.veil.launcher.data.Game.State.PRE); shoot("game-tonight", newState()) }

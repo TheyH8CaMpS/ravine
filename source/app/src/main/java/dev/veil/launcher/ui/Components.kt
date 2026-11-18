@@ -185,8 +185,10 @@ fun Clock(fontSize: TextUnit = 24.sp) {
 /**
  * Ravine's game strip: floats in the top bar like the wordmark (no pill until focused). A dot in the team's
  * colour, the matchup or score in the serif, and the time / clock / FINAL in small caps.
- *   before:  ● Lakers vs Jazz   TONIGHT 7:00 PM · SPECTRUM SPORTS NET
- *   live:    ● Lakers 54 · Jazz 50   4:12 - 3RD · SPECTRUM SPORTS NET
+ *   before:  ● Lakers vs Jazz
+ *              TONIGHT 7:00 PM · 512 · SPECTRUM SPORTSNET LA
+ *   live:    ● Lakers 54 · Jazz 50
+ *              4:12 - 3RD · 512 · SPECTRUM SPORTSNET LA
  *   after:   ● Lakers 112 · Jazz 104   FINAL · W
  */
 @Composable
@@ -200,8 +202,8 @@ fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit)
     }
     val note = when (game.state) {
         // Before the game: when, and on which channel (from ESPN), so it's quick to find in TiviMate.
-        dev.veil.launcher.data.Game.State.PRE -> listOfNotNull(gameStartText(context, game.startMs, now), game.broadcast).joinToString(" · ")
-        dev.veil.launcher.data.Game.State.LIVE -> listOfNotNull(game.detail, game.broadcast).joinToString(" · ")
+        dev.veil.launcher.data.Game.State.PRE -> listOfNotNull(gameStartText(context, game.startMs, now), game.whereToWatch).joinToString(" · ")
+        dev.veil.launcher.data.Game.State.LIVE -> listOfNotNull(game.detail, game.whereToWatch).joinToString(" · ")
         dev.veil.launcher.data.Game.State.FINAL -> "Final" + when (game.won) { true -> " · W"; false -> " · L"; null -> "" }
     }
     // While live, the team dot breathes slowly.
@@ -219,15 +221,23 @@ fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit)
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
     ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Two lines (matchup over time · channel), capped in width so a long provider channel name can
+        // never run into the centred clock; anything longer ends in "…".
+        Row(
+            Modifier.widthIn(max = 330.dp).padding(horizontal = 12.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(Color(game.team.color)))
-            Spacer(Modifier.width(8.dp))
-            Text(title, fontFamily = Display, fontSize = 17.sp, maxLines = 1)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                note.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp, maxLines = 1,
-                color = if (focused) Veil.Ink.copy(alpha = 0.7f) else Veil.Accent,
-            )
+            Spacer(Modifier.width(9.dp))
+            Column {
+                Text(title, fontFamily = Display, fontSize = 16.sp, lineHeight = 17.sp, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(
+                    note.uppercase(), fontSize = 7.5.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    color = if (focused) Veil.Ink.copy(alpha = 0.7f) else Veil.Accent,
+                )
+            }
         }
     }
 }

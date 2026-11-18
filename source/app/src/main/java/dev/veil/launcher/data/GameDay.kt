@@ -50,8 +50,13 @@ data class Game(
     val ourScore: Int?,
     val theirScore: Int?,
     val broadcast: String?,
+    /** Courtside's provider channel ("512 · Spectrum SportsNet LA"), when set up; else null. */
+    val channel: String? = null,
 ) {
     enum class State { PRE, LIVE, FINAL }
+
+    /** Where to find it in TiviMate: Courtside's provider channel if known, else ESPN's network. */
+    val whereToWatch: String? get() = channel ?: broadcast
 
     /** "Lakers vs Jazz" at home, "Raiders at Broncos" away. */
     val matchup: String get() = "${team.name} ${if (home) "vs" else "at"} $opponent"
@@ -147,6 +152,8 @@ object EspnParse {
  */
 object GameDay {
     var source: GameSource = EspnSource()
+    /** Courtside channel names (optional); off in previews. */
+    var decorateWithCourtside = true
 
     @Volatile var current: Game? = null
         private set
@@ -191,6 +198,7 @@ object GameDay {
             }
         }
         current = pick?.takeIf { it.inWindow(now) || it.state == Game.State.PRE }
+            ?.let { g -> if (decorateWithCourtside) runCatching { CourtsideGuide.decorate(context, g, now) }.getOrDefault(g) else g }
         return current
     }
 

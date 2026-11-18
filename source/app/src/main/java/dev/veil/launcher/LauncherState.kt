@@ -277,6 +277,9 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         tickGames()
     }
 
+    /** Courtside is set up for provider channel names (PROJECT.md D30). */
+    val courtsideChannels: Boolean get() = runCatching { dev.veil.launcher.data.CourtsideGuide.configured(context) }.getOrDefault(false)
+
     var teamWallpapers by mutableStateOf(prefs.getBoolean("team_wallpapers", true))
         private set
 

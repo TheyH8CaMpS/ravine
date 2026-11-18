@@ -73,6 +73,8 @@ They're out of scope.
 | D27 | Game-day mode: `GameDay` picks a live game, then a recent final, then the next start within 18 h, for the enabled teams. Strip in the top bar (OK opens "Watch games in", default TiviMate (D29)); team wallpapers from 3 h before the start to ~1 h after the end; score in Ambient. Data from ESPN's public site API behind a `GameSource` interface | Owner's teams; ESPN is free and keyless but unofficial, so it's swappable. Courtside's plug-in contract is `docs/courtside.md` |
 | D28 | ESPN team ids are only unique within a league (Lakers and Raiders are both 13): responses are always parsed for the league they were fetched for | Found by a unit test |
 | D29 | Games are always watched in TiviMate (the "Watch games in" app): no Courtside deep link, no Courtside APK, scores straight from ESPN. The strip shows ESPN's broadcast channel. Courtside may later supply only the provider channel name through a token-protected, URL-free endpoint (docs/courtside.md) | Owner: Courtside's streaming keeps breaking, TiviMate always works. Courtside is a phone web app with owner-only Sites sign-in |
+| D30 | Provider channel names from Courtside's `GET /api/tv/games` (TheyH8CaMpS/courtside#201) when set up; ESPN's network name otherwise. The Courtside address and both tokens are pushed once over ADB (`courtside.properties`), moved into private app storage and the file deleted: never in the APK, repo or CI | Same IPTV provider as TiviMate and the owner browses TiviMate's guide; Ravine's APK is public |
+| D31 | The game strip is two lines (matchup; time · channel), max 330 dp wide, ellipsized | A long provider channel name pushed it into the centred clock (caught in previews) |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

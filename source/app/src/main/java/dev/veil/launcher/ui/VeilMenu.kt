@@ -243,6 +243,10 @@ private fun VeilPanel(state: LauncherState) {
             }
             IndexRow("Team wallpapers", if (state.teamWallpapers) "On" else "Off", onClick = state::toggleTeamWallpapers)
             IndexRow("Watch games in", state.watchWithLabel, onClick = state::cycleWatchWith)
+            Note(
+                if (state.courtsideChannels) "Channel names from Courtside, as in TiviMate's guide."
+                else "Channel names from ESPN. Courtside can supply your provider's channels (set up over ADB).",
+            )
 
             Spacer(Modifier.height(10.dp))
             Text(

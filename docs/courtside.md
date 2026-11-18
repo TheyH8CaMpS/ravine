@@ -16,6 +16,26 @@ channels in the owner's provider guide, and in-app playback through a relay and 
   Courtside adds a hop and a dependency without adding information.
 - The `courtside://` deep link from the first game-day build was removed.
 
+## Built: provider channel names (2026-11-18, D30)
+
+Courtside PR [TheyH8CaMpS/courtside#201](https://github.com/TheyH8CaMpS/courtside/pull/201) (issue #200) adds
+`GET /api/tv/games`, and Ravine's `CourtsideGuide` uses it to show e.g. "512 · Spectrum SportsNet LA" on the game
+strip. It goes live only after the owner merges and deploys #201 and sets the secrets below.
+
+**Setup (once):**
+1. In 1Password, generate a random value of 48+ characters as `COURTSIDE_TV_TOKEN` (item `Courtside`).
+2. After deploying #201, add it as the Sites runtime secret `COURTSIDE_TV_TOKEN`.
+3. On the PC, create `courtside.properties` with `COURTSIDE_URL=` (Courtside's https address),
+   `COURTSIDE_TV_TOKEN=` and `COURTSIDE_SITES_BYPASS_TOKEN=` (the existing owner-only bypass value), then:
+   `adb push courtside.properties /sdcard/Android/data/app.ravine.launcher/files/` and open Ravine. Ravine moves the
+   values into private storage and deletes the file. Delete the PC copy too.
+4. The menu's Game day section says "Channel names from Courtside" once it's set up.
+
+To rotate: push a new file. To remove: clear Ravine's data, or unset the Sites secret (Ravine then quietly falls
+back to ESPN's network name).
+
+The original proposal follows.
+
 ## Where Courtside can still add value (optional, later)
 
 Courtside's unique data is the **guide match**: which channel in the owner's provider guide carries a game
