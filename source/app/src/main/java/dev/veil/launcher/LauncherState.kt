@@ -174,6 +174,15 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         if (idleOnHome && now - lastRotate >= wallpapers.rotateMinutes * 60_000L) nextWallpaper()
     }
 
+    /** Ravine: how deep Home's picture is drawn (see PictureDepth). Deep suits a UI shown in HDR mode. */
+    var pictureDepth by mutableStateOf(prefs.getInt("picture_depth", dev.veil.launcher.ui.PictureDepth.DEEP))
+        private set
+
+    fun cyclePictureDepth() {
+        pictureDepth = (pictureDepth + 1) % 3
+        prefs.edit().putInt("picture_depth", pictureDepth).apply()
+    }
+
     /** Ravine: whether the ad-blocking (Private DNS) pill shows in the top bar. Off by default. */
     var showPrivacy by mutableStateOf(prefs.getBoolean("show_privacy", false))
         private set

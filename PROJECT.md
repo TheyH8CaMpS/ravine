@@ -58,6 +58,7 @@ They're out of scope.
 | D12 | Home starts with focus on the app dock, so the wallpaper is what you see first | Show artwork appears only when you move up into Continue Watching |
 | D13 | Instrument Serif (OFL) is the display face: clock and wallpaper titles. Manrope stays for UI text | The editorial/vintage direction in §2 |
 | D14 | Themes: Ravine (forest + brass, default), Canyon (bark + terracotta), Chavez (night blue). Veil's themes stay selectable | Text colour is warm "bone" instead of cool white |
+| D15 | The Shield's display mode is **never** changed by Ravine or its setup: the owner keeps the interface in HDR / Dolby Vision mode because that's tuned for video. Ravine compensates with "Picture depth" (Standard / Rich / Deep, default Deep): a contrast and brightness filter on the backdrop plus an even darkening layer | In HDR mode the TV lifts dark tones, so the interface looked milky |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

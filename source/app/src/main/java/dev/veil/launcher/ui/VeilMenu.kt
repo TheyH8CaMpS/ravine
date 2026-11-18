@@ -195,6 +195,12 @@ private fun VeilPanel(state: LauncherState) {
         // Ambient
         MenuButton(icon = VeilIcons.Sparkle, title = "Start Ravine Ambient", subtitle = "Screensaver & music mode", onClick = state::startAmbient)
         MenuButton(
+            icon = VeilIcons.HalfCircle,
+            title = "Picture depth: " + PictureDepth.name(state.pictureDepth),
+            subtitle = "Deeper blacks and contrast for the wallpaper. Press to cycle",
+            onClick = state::cyclePictureDepth,
+        )
+        MenuButton(
             icon = VeilIcons.Star,
             title = "Next wallpaper",
             subtitle = state.wallpaper?.let { listOfNotNull(it.title.takeIf(String::isNotBlank), it.collection.takeIf(String::isNotBlank)).joinToString(" · ") }

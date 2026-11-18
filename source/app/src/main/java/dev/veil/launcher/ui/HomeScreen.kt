@@ -131,7 +131,7 @@ fun HomeScreen(state: LauncherState) {
     Box(Modifier.fillMaxSize().background(Veil.Bg)) {
         // The drift also holds still while Veil Ambient covers Home (nobody can see it, and it cost frames).
         // (Lite mode: no drift at all; on slow TVs redrawing the full-screen artwork costs frames.)
-        Backdrop(backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE)
+        Backdrop(backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE, depth = state.pictureDepth)
         // Frost: the pre-blurred artwork fades in over the real one (cheap; a live blur is too slow here).
         val fi = frostImg
         if (fi != null) {
@@ -143,6 +143,10 @@ fun HomeScreen(state: LauncherState) {
         }
         // Dark fades + artwork-colour glow, pre-rendered as one dithered image (see HomeShade: the GPU is
         // too slow for live full-screen gradients while the backdrop drifts).
+        // Picture depth (Ravine): an extra even darkening under the text shading, for TVs that lift dark tones
+        // while the interface is shown in HDR / Dolby Vision mode.
+        val veil = PictureDepth.extraShade(state.pictureDepth)
+        if (veil > 0f) Box(Modifier.fillMaxSize().background(ThemeState.current.bg.copy(alpha = veil)))
         HomeShade(bg = ThemeState.current.bg, glow = ArtTint.target)
 
         Column(Modifier.fillMaxSize().padding(top = 26.dp, bottom = 22.dp)) {
@@ -161,7 +165,8 @@ fun HomeScreen(state: LauncherState) {
 }
 
 @Composable
-private fun Backdrop(url: String?, paused: Boolean = false) {
+private fun Backdrop(url: String?, paused: Boolean = false, depth: Int = PictureDepth.STANDARD) {
+    val filter = remember(depth) { PictureDepth.filter(depth) }
     val context = LocalContext.current
     Crossfade(targetState = url, animationSpec = tween(600), label = "backdrop") { u ->
         if (u != null) {
@@ -194,6 +199,7 @@ private fun Backdrop(url: String?, paused: Boolean = false) {
                 model = ImageRequest.Builder(context).data(u).crossfade(true).size(1920, 1080).build(), // screen size, not 4K
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                colorFilter = filter,
                 modifier = Modifier.fillMaxSize().graphicsLayer {
                     val d = drift.floatValue
                     val z = 1f + 0.08f * d
