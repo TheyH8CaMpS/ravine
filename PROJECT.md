@@ -21,7 +21,9 @@ decision changes.** Don't redesign or rewrite what's recorded here without a sta
 
 **Backup before Ravine (2026-11-18, via ADB):** screensaver `com.google.android.backdrop/.Backdrop`;
 accessibility services: Projectivy's override only; notification listeners: Google TV recommendations only;
-Private DNS: not set. (`cmd role get-role-holders` doesn't exist on this Android 11 build.) Undo script:
+Private DNS: not set; default HOME activity `com.google.android.tvlauncher/.MainActivity` (Projectivy takes
+the Home button via its accessibility service, not the HOME role). (`cmd role get-role-holders` doesn't exist on
+this Android 11 build.) Undo script:
 `tools/undo-ravine.ps1`.
 
 The soundbar, HDR, Dolby Vision and colour-space settings are Shield settings, not launcher features.
