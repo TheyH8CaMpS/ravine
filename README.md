@@ -1,4 +1,15 @@
-# Veil
+# Ravine
+
+**A personal Android TV home screen for an NVIDIA Shield**: forest-and-Los-Angeles wallpapers, Nuvio
+continue watching, synced lyrics and a music visualizer, in dark greens and earthy browns.
+
+Ravine is a fork of [Veil](https://github.com/trbrnt/Veil) by trbrnt, under the same GPL-3.0 license.
+Decisions, roadmap and Shield-specific notes are in **[`PROJECT.md`](PROJECT.md)**. The rest of this README
+is Veil's original documentation and will be rewritten as Ravine diverges.
+
+---
+
+## Upstream: Veil
 
 **A calm, private home screen for Android TV.** Veil replaces your TV's home screen with a clean, cinematic
 one: big artwork, what you're watching, your apps, and nothing else. No ads, no "recommended for you",

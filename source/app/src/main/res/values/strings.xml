@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Veil</string>
-    <string name="a11y_label">Veil home button</string>
-    <string name="media_label">Veil now playing</string>
-    <string name="a11y_desc">Makes the remote\'s Home button open Veil instead of the Google TV home screen. It only listens for the Home button and never reads screen content.</string>
+    <string name="app_name">Ravine</string>
+    <string name="a11y_label">Ravine home button</string>
+    <string name="media_label">Ravine now playing</string>
+    <string name="a11y_desc">Makes the remote\'s Home button open Ravine instead of the stock home screen. It only listens for the Home button and never reads screen content.</string>
 </resources>

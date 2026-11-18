@@ -138,7 +138,7 @@ private fun MusicMenu(state: LauncherState) {
     val appName = track?.let { t -> state.apps.firstOrNull { it.pkg == t.pkg }?.label } ?: "app"
     val actions = listOf(
         SheetAction("Open $appName", VeilIcons.Play) { state.openNowPlayingApp() },
-        SheetAction("Veil Ambient", VeilIcons.Sparkle) { state.startAmbient() },
+        SheetAction("Ravine Ambient", VeilIcons.Sparkle) { state.startAmbient() },
     )
     ActionSheet(title = track?.title ?: "Now playing", actions = actions, onDismiss = { state.musicSheet = false })
 }

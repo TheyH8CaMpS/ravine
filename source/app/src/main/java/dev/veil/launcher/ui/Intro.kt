@@ -97,7 +97,7 @@ fun IntroOverlay(running: Boolean, onDone: () -> Unit) {
                 )
                 Spacer(Modifier.width(14.dp))
                 Text(
-                    "veil", fontSize = 56.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-2).sp, color = Veil.Text,
+                    "ravine", fontSize = 56.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-2).sp, color = Veil.Text,
                     modifier = Modifier.drawWithContent {
                         // Unveil: clip to a soft-edged window that moves left to right.
                         val r = reveal.value

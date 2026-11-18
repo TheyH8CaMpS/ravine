@@ -227,7 +227,7 @@ private fun HeroBody(hero: WatchItem?, state: LauncherState) {
         if (hero == null) {
             Text("PRIVATE BY DESIGN", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
             Text(
-                if (state.connected) "Welcome back" else "Welcome to Veil",
+                if (state.connected) "Welcome back" else "Welcome to Ravine",
                 fontSize = 48.sp, lineHeight = 48.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.6).sp,
             )
             Text(

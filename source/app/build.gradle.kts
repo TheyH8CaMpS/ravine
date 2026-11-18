@@ -28,15 +28,16 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "dev.veil.launcher"
+        applicationId = "app.ravine.launcher"
         minSdk = 28 // Android 9+. Newer-only features are guarded with version checks.
         targetSdk = 34
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 100
+        versionName = "0.1.0"
         buildConfigField("String", "TRAKT_CLIENT_ID", key("TRAKT_CLIENT_ID"))
         buildConfigField("String", "TRAKT_CLIENT_SECRET", key("TRAKT_CLIENT_SECRET"))
         buildConfigField("String", "TRAKT_REDIRECT_URI", key("TRAKT_REDIRECT_URI"))
         buildConfigField("String", "TMDB_KEY", key("TMDB_KEY"))
+        buildConfigField("String", "SIMKL_CLIENT_ID", key("SIMKL_CLIENT_ID")) // Ravine: watch progress via Simkl (M2)
         buildConfigField("String", "NEXTDNS_PROFILE", key("NEXTDNS_PROFILE"))
         buildConfigField("String", "NEXTDNS_API_KEY", key("NEXTDNS_API_KEY"))
         buildConfigField("String", "WEATHER_CITY", key("WEATHER_CITY"))
@@ -44,12 +45,25 @@ android {
         buildConfigField("boolean", "LITE_MODE", (keys.getProperty("LITE_MODE", "false").trim() == "true").toString())
     }
 
+    // Ravine: a stable release key so each new APK installs over the last one on the Shield.
+    // CI provides it from GitHub secrets (RAVINE_KEYSTORE_*). Without it, builds fall back to the debug key,
+    // which differs per machine, so such an APK can't update an install made from another machine.
+    val releaseStore = System.getenv("RAVINE_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseStore != null) create("ravine") {
+            storeFile = releaseStore
+            storePassword = System.getenv("RAVINE_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("RAVINE_KEY_ALIAS") ?: "ravine"
+            keyPassword = System.getenv("RAVINE_KEY_PASSWORD") ?: System.getenv("RAVINE_KEYSTORE_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("ravine") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

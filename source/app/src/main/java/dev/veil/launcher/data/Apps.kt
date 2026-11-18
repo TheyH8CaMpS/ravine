@@ -1,5 +1,6 @@
 package dev.veil.launcher.data
 
+import dev.veil.launcher.BuildConfig
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
@@ -20,7 +21,7 @@ data class AppEntry(
 object Apps {
     /** Packages never shown in the app drawer. */
     private val HIDDEN = setOf(
-        "dev.veil.launcher",
+        BuildConfig.APPLICATION_ID,
         "com.google.android.apps.tv.launcherx",
         "com.google.android.tvlauncher",
     )

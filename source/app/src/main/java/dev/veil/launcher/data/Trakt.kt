@@ -28,7 +28,7 @@ class Trakt(context: Context) {
 
     /**
      * Uses your own Trakt app (null or blank: back to the built-in one). Signs out, since a login belongs to
-     * the app it was made with. Also writes the ID to Android/data/dev.veil.launcher/files/trakt.properties so
+     * the app it was made with. Also writes the ID to Android/data/app.ravine.launcher/files/trakt.properties so
      * it can be copied into keys.properties over ADB.
      */
     fun setClientId(id: String?) {

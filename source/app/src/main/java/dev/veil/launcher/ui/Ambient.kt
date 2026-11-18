@@ -88,7 +88,7 @@ import java.text.NumberFormat
  * Veil Ambient: one calm full-screen mode with two faces.
  *  - Music playing → blurred, slowly breathing album art with the track in large type.
  *  - Otherwise → a slow, drifting slideshow of your Continue Watching artwork.
- * Both share the same frame: clock + weather top right, Veil Shield line bottom right.
+ * Both share the same frame: clock + weather top right, Ravine Shield line bottom right.
  */
 @Composable
 fun AmbientScreen(
@@ -168,12 +168,12 @@ fun AmbientScreen(
             Spacer(Modifier.width(7.dp))
             Text(
                 when {
-                    !dnsOn -> "Veil Shield is off"
+                    !dnsOn -> "Ravine Shield is off"
                     // Sundays: the weekly report, in the same quiet line.
                     sunday && weeklyBlocked != null ->
-                        "Veil Shield · ${NumberFormat.getIntegerInstance().format(weeklyBlocked)} trackers blocked this week"
-                    blocked == null -> "Veil Shield is up"
-                    else -> "Veil Shield · ${NumberFormat.getIntegerInstance().format(blocked)} trackers blocked today"
+                        "Ravine Shield · ${NumberFormat.getIntegerInstance().format(weeklyBlocked)} trackers blocked this week"
+                    blocked == null -> "Ravine Shield is up"
+                    else -> "Ravine Shield · ${NumberFormat.getIntegerInstance().format(blocked)} trackers blocked today"
                 },
                 fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.7f),
             )

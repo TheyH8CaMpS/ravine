@@ -295,7 +295,7 @@ private fun PrivacyPanel(state: LauncherState) {
                 when {
                     paused -> "Taking a breather."
                     !on -> "The veil is down."
-                    d == null -> "Veil Shield is up."
+                    d == null -> "Ravine Shield is up."
                     d.blocked == 0 -> "All quiet. Nothing's slipped through."
                     d.blocked == 1 -> "1 tracker stopped at the door."
                     else -> "${nf.format(d.blocked)} trackers stopped at the door."

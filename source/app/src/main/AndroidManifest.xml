@@ -76,11 +76,11 @@
         </service>
 
         <!-- Veil Ambient as the system screensaver. Selected over ADB:
-             settings put secure screensaver_components dev.veil.launcher/dev.veil.launcher.VeilDream -->
+             settings put secure screensaver_components app.ravine.launcher/dev.veil.launcher.VeilDream -->
         <service
             android:name=".VeilDream"
             android:exported="true"
-            android:label="Veil Ambient"
+            android:label="Ravine Ambient"
             android:permission="android.permission.BIND_DREAM_SERVICE">
             <intent-filter>
                 <action android:name="android.service.dreams.DreamService" />
@@ -92,7 +92,7 @@
         <receiver android:name=".DnsResumeReceiver" android:exported="false" />
 
         <!-- Only used so Veil may read "now playing" media sessions. It ignores notification contents.
-             Enabled over ADB: cmd notification allow_listener dev.veil.launcher/dev.veil.launcher.MediaListener -->
+             Enabled over ADB: cmd notification allow_listener app.ravine.launcher/dev.veil.launcher.MediaListener -->
         <service
             android:name=".MediaListener"
             android:exported="true"
