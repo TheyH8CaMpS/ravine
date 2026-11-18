@@ -185,8 +185,8 @@ fun Clock(fontSize: TextUnit = 24.sp) {
 /**
  * Ravine's game strip: floats in the top bar like the wordmark (no pill until focused). A dot in the team's
  * colour, the matchup or score in the serif, and the time / clock / FINAL in small caps.
- *   before:  ● Lakers vs Jazz   TONIGHT 7:00 PM
- *   live:    ● Lakers 54 · Jazz 50   4:12 - 3RD
+ *   before:  ● Lakers vs Jazz   TONIGHT 7:00 PM · SPECTRUM SPORTS NET
+ *   live:    ● Lakers 54 · Jazz 50   4:12 - 3RD · SPECTRUM SPORTS NET
  *   after:   ● Lakers 112 · Jazz 104   FINAL · W
  */
 @Composable
@@ -199,8 +199,9 @@ fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit)
         else -> "${game.team.name} ${game.ourScore ?: 0} · ${game.opponent} ${game.theirScore ?: 0}"
     }
     val note = when (game.state) {
-        dev.veil.launcher.data.Game.State.PRE -> gameStartText(context, game.startMs, now)
-        dev.veil.launcher.data.Game.State.LIVE -> game.detail
+        // Before the game: when, and on which channel (from ESPN), so it's quick to find in TiviMate.
+        dev.veil.launcher.data.Game.State.PRE -> listOfNotNull(gameStartText(context, game.startMs, now), game.broadcast).joinToString(" · ")
+        dev.veil.launcher.data.Game.State.LIVE -> listOfNotNull(game.detail, game.broadcast).joinToString(" · ")
         dev.veil.launcher.data.Game.State.FINAL -> "Final" + when (game.won) { true -> " · W"; false -> " · L"; null -> "" }
     }
     // While live, the team dot breathes slowly.

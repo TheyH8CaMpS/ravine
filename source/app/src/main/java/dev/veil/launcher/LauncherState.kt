@@ -298,15 +298,11 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     }
 
     /**
-     * OK on the game strip: Courtside's game page when Courtside is installed (docs/courtside.md),
-     * otherwise the "watch with" app.
+     * OK on the game strip: always the "Watch games in" app (TiviMate by default), never Courtside
+     * (PROJECT.md D29: TiviMate's playback is the reliable one).
      */
     fun openGame() {
-        val g = game ?: return
-        val courtside = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
-            "courtside://game?league=${g.team.league.name.lowercase()}&espn=${g.id}&team=${g.team.key}",
-        )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (courtside.resolveActivity(context.packageManager) != null && start(courtside)) return
+        if (game == null) return
         val pm = context.packageManager
         (pm.getLeanbackLaunchIntentForPackage(watchWith) ?: pm.getLaunchIntentForPackage(watchWith))
             ?.let { start(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
