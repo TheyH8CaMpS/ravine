@@ -47,9 +47,9 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
 
     var screen by mutableStateOf(Screen.HOME)
     var apps by mutableStateOf<List<AppEntry>>(emptyList())
-        private set
+        internal set // internal: preview tests set it
     var items by mutableStateOf<List<WatchItem>>(emptyList())
-        private set
+        internal set // internal: preview tests set it
     var focused by mutableStateOf<WatchItem?>(null)
     /** Index of the last focused Continue Watching item, for the "x of N" counter. */
     var focusedIndex by mutableStateOf(0)
@@ -236,6 +236,49 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun unpin(app: AppEntry) = savePins(pins - app.pkg)
 
     /** Moves a pinned app one step left (-1) or right (+1) among the apps that are installed. */
+    // ---- Ravine menu settings ------------------------------------------------------------------
+
+    var ambientMinutes by mutableStateOf(prefs.getInt("ambient_minutes", 10))
+        private set
+
+    fun cycleAmbientMinutes() {
+        val opts = listOf(2, 5, 10, 15, 30, 0)
+        ambientMinutes = opts[(opts.indexOf(ambientMinutes) + 1).mod(opts.size)]
+        prefs.edit().putInt("ambient_minutes", ambientMinutes).apply()
+    }
+
+    var rotateMinutes by mutableStateOf(wallpapers.rotateMinutes)
+        private set
+
+    fun cycleRotateMinutes() {
+        val opts = listOf(5, 10, 20, 30, 60)
+        rotateMinutes = opts[(opts.indexOf(rotateMinutes) + 1).mod(opts.size)]
+        wallpapers.rotateMinutes = rotateMinutes
+    }
+
+    fun cycleTheme() {
+        val all = dev.veil.launcher.ui.Themes.all
+        setTheme(all[(all.indexOfFirst { it.id == dev.veil.launcher.ui.ThemeState.current.id } + 1).mod(all.size)])
+    }
+
+    /** What Ambient shows while music plays: "lyrics" (album art + lyrics), "art" (album art only) or "viz". */
+    val musicMode: String get() = when {
+        musicStyle == "viz" && visualizerAllowed -> "viz"
+        lyricsMusic -> "lyrics"
+        else -> "art"
+    }
+
+    fun cycleMusicMode() {
+        val next = when (musicMode) { "lyrics" -> "art"; "art" -> if (visualizerAllowed) "viz" else "lyrics"; else -> "lyrics" }
+        when (next) {
+            "viz" -> chooseMusicStyle("viz")
+            else -> {
+                chooseMusicStyle("veil")
+                if (lyricsMusic != (next == "lyrics")) toggleLyricsMusic()
+            }
+        }
+    }
+
     /** Ravine: the dock app being moved with Left/Right, or null. */
     var movingPkg by mutableStateOf<String?>(null)
         private set
@@ -601,14 +644,17 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
 
     fun resetIdle() { lastInput = System.currentTimeMillis(); ambient = false }
 
-    /** Music playing: ambient after 30 s idle on Home. Otherwise after 5 min. */
+    /**
+     * Ravine: Ambient starts after [ambientMinutes] of no input on Home, with or without music (Veil started
+     * it after 30 s with music, which felt too soon). 0 = never by itself (the system screensaver still runs).
+     */
     fun checkIdle() {
         if (ambient || screen != Screen.HOME || sheet != null || privacySheet || musicSheet || weatherPicker ||
             vizSettingsOpen || watchSheet != null
         ) return
         val idle = System.currentTimeMillis() - lastInput
         val playing = nowPlaying.track?.playing == true
-        if ((playing && idle >= 30_000) || idle >= 5 * 60_000) ambient = true
+        if (ambientMinutes > 0 && idle >= ambientMinutes * 60_000L) ambient = true
     }
 
     fun openNowPlayingApp() {

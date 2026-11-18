@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
@@ -94,24 +95,15 @@ fun VeilMenuAnchor(state: LauncherState) {
                 else e.key == Key.Back
             },
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+            // Ravine: the wordmark floats in the serif face (no pill) and fills in bone when focused.
             colors = ClickableSurfaceDefaults.colors(
-                containerColor = Veil.Glass, contentColor = Veil.Text,
+                containerColor = Color.Transparent, contentColor = Veil.Text,
                 focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
             ),
-            border = ClickableSurfaceDefaults.border(
-                border = Border(BorderStroke(1.dp, Veil.Line), shape = RoundedCornerShape(50)),
-                focusedBorder = Border.None,
-            ),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         ) {
-            Row(Modifier.padding(start = 9.dp, end = 9.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                // December: a snowflake instead of the lock (if seasonal touches are on).
-                Icon(
-                    if (state.seasonal && Seasons.isWinter()) VeilIcons.Snowflake else VeilIcons.Lock,
-                    contentDescription = null, modifier = Modifier.size(13.dp), tint = LocalContentColor.current,
-                )
-                Spacer(Modifier.width(6.dp))
-                Text("ravine", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp)
+            Row(Modifier.padding(start = 12.dp, end = 10.dp, top = 2.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Ravine", fontFamily = Display, fontSize = 24.sp, letterSpacing = (-0.2).sp)
                 Spacer(Modifier.width(5.dp))
                 Icon(
                     VeilIcons.ChevronDown, contentDescription = "Menu", modifier = Modifier.size(11.dp),
@@ -155,16 +147,18 @@ private fun KeptPanel(open: Boolean, content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * Ravine's menu, laid out like the index of a field guide (PROJECT.md D21): a serif masthead with today's
+ * date, four numbered sections, and one line per setting with its current value in small caps on the right.
+ * OK cycles a value or opens the item. Everything about music lives in one row ("With music").
+ */
 @Composable
 private fun VeilPanel(state: LauncherState) {
-    var focusedTheme by remember { mutableStateOf<VeilThemeSpec?>(null) }
-    val current = ThemeState.current
     val vizButton = remember { FocusRequester() }
     val weatherButton = remember { FocusRequester() }
-    // The panel stays built between opens; start each open scrolled to the top, as before.
     val scroll = rememberScrollState()
     LaunchedEffect(state.veilMenuOpen) { if (!state.veilMenuOpen) scroll.scrollTo(0) }
-    // After a window opened from this menu closes, put focus back on the button that opened it.
+    // After a window opened from this menu closes, put focus back on the row that opened it.
     LaunchedEffect(state.menuReturn) {
         val target = when (state.menuReturn) { "viz" -> vizButton; "weather" -> weatherButton; else -> null }
         if (target != null) {
@@ -173,253 +167,151 @@ private fun VeilPanel(state: LauncherState) {
             state.menuReturn = null
         }
     }
-    Column(
+    val shape = RoundedCornerShape(10.dp)
+    Box(
         Modifier
             .onPreviewKeyEvent { e ->
                 // Back closes the menu by sending focus back to the page.
                 if (e.key == Key.Back && e.type == KeyEventType.KeyUp) { Sfx.back(); state.focusHome(); true }
                 else e.key == Key.Back
             }
-            .width(330.dp).heightIn(max = 445.dp).clip(RoundedCornerShape(20.dp)).background(Veil.Sheet)
-            .border(1.dp, Veil.Line, RoundedCornerShape(20.dp))
-            .verticalScroll(scroll) // focus moving down scrolls it into view
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .width(400.dp).heightIn(max = 470.dp).clip(shape).background(Veil.Sheet).border(1.dp, Veil.Line, shape),
     ) {
-        // Header
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("ravine", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp)
-            Text("Private by design · no ads · no tracking", fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.6f))
-        }
-
-        // Ambient
-        MenuButton(icon = VeilIcons.Sparkle, title = "Start Ravine Ambient", subtitle = "Screensaver & music mode", onClick = state::startAmbient)
-        MenuButton(
-            icon = VeilIcons.HalfCircle,
-            title = "Picture depth: " + PictureDepth.name(state.pictureDepth),
-            subtitle = "Deeper blacks and contrast for the wallpaper. Press to cycle",
-            onClick = state::cyclePictureDepth,
-        )
-        MenuButton(
-            icon = VeilIcons.Sparkle,
-            title = "Film grain: " + if (state.filmGrain) "on" else "off",
-            subtitle = "A faint vintage grain over the photo",
-            onClick = state::toggleFilmGrain,
-        )
-        MenuButton(
-            icon = VeilIcons.Star,
-            title = "Next wallpaper",
-            subtitle = state.wallpaper?.let { listOfNotNull(it.title.takeIf(String::isNotBlank), it.collection.takeIf(String::isNotBlank)).joinToString(" · ") }
-                ?: "Loading your wallpaper library…",
-            onClick = state::nextWallpaper,
-        )
-
-        // Music mode: what Veil Ambient shows while music plays
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("MUSIC MODE")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeChip("Ravine", VeilIcons.Note, state.musicStyle == "veil", Modifier.weight(1f)) { state.chooseMusicStyle("veil") }
-                ModeChip(
-                    when {
-                        state.visualizerAllowed -> "Visualizer"
-                        !state.visualizerSupported -> "Visualizer (not supported on this TV)"
-                        else -> "Visualizer (no audio access)"
-                    },
-                    VeilIcons.Wave, state.musicStyle == "viz", Modifier.weight(1f),
-                ) { state.chooseMusicStyle("viz") }
+        GrainLayer(state.filmGrain, Modifier.matchParentSize())
+        Column(
+            Modifier.verticalScroll(scroll).padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            // Masthead: today's date like the top of a page (the wordmark above already says "Ravine").
+            val day = remember(state.minuteTick / 3_600_000) {
+                java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault()).format(java.util.Date())
             }
-            if (state.musicStyle == "veil") {
-                MenuButton(
-                    icon = VeilIcons.Lyrics,
-                    title = "Lyrics: " + if (state.lyricsMusic) "on" else "off",
-                    subtitle = "Synced lyrics next to the album art",
-                    onClick = state::toggleLyricsMusic,
-                )
+            val date = remember(state.minuteTick / 3_600_000) {
+                java.text.SimpleDateFormat("MMMM d", java.util.Locale.getDefault()).format(java.util.Date())
             }
-            if (state.musicStyle == "viz" && state.visualizerAllowed) {
-                MenuButton(
-                    icon = VeilIcons.Wave, title = "Visualizer settings", subtitle = "Sensitivity, motion, trails… with live preview",
-                    modifier = Modifier.focusRequester(vizButton),
+            Text(day, fontFamily = Display, fontSize = 34.sp, lineHeight = 36.sp, letterSpacing = (-0.3).sp)
+            Text(
+                listOfNotNull(date, state.weatherPlace, state.weather?.let { "${it.tempC}°" }).joinToString("  ·  "),
+                fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.height(10.dp))
+
+            Section("I", "Wallpaper")
+            val w = state.wallpaper
+            IndexRow("Next photo", w?.title?.takeIf(String::isNotBlank) ?: "…", serifValue = true, onClick = state::nextWallpaper)
+            IndexRow("Change photo every", "${state.rotateMinutes} min", onClick = state::cycleRotateMinutes)
+            IndexRow("Picture depth", PictureDepth.name(state.pictureDepth), onClick = state::cyclePictureDepth)
+            IndexRow("Film grain", if (state.filmGrain) "On" else "Off", onClick = state::toggleFilmGrain)
+
+            Section("II", "Ambient")
+            IndexRow("Start Ambient now", arrow = true, onClick = state::startAmbient)
+            IndexRow(
+                "Starts after", if (state.ambientMinutes == 0) "Never" else "${state.ambientMinutes} min",
+                onClick = state::cycleAmbientMinutes,
+            )
+            IndexRow(
+                "With music",
+                when (state.musicMode) { "viz" -> "Visualizer"; "art" -> "Album art"; else -> "Lyrics" },
+                onClick = state::cycleMusicMode,
+            )
+            if (state.musicMode == "viz") {
+                IndexRow(
+                    "Visualizer settings", arrow = true, modifier = Modifier.focusRequester(vizButton),
                     onClick = { state.vizSettingsOpen = true },
                 )
+            } else if (!state.visualizerAllowed) {
+                Note(if (!state.visualizerSupported) "The visualizer isn't supported on this TV." else "The visualizer needs audio access (granted over ADB).")
             }
-        }
 
-        // Themes
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val shown = focusedTheme ?: current
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionLabel("THEME")
-                Spacer(Modifier.width(8.dp))
-                Text(shown.name, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = shown.accent)
-                if (shown.id == current.id) {
-                    Spacer(Modifier.width(5.dp))
-                    Text("· active", fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.5f))
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Themes.all.forEach { t ->
-                    ThemeBubble(
-                        theme = t,
-                        selected = t.id == current.id,
-                        onClick = { state.setTheme(t) },
-                        onFocus = { focusedTheme = if (it) t else if (focusedTheme == t) null else focusedTheme },
-                    )
-                }
-            }
-            MenuButton(
-                icon = VeilIcons.Sparkle,
-                title = "Colours from artwork: " + if (state.artColors) "on" else "off",
-                subtitle = "The accent glows in the colours of the show you're on",
-                onClick = state::toggleArtColors,
-            )
-        }
+            Section("III", "Look")
+            IndexRow("Theme", ThemeState.current.name, swatch = ThemeState.current.accent, onClick = state::cycleTheme)
+            IndexRow("Colours from the photo", if (state.artColors) "On" else "Off", onClick = state::toggleArtColors)
 
-        // Weather location
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("WEATHER")
-            val w = state.weather
-            MenuButton(
-                icon = if (w != null) weatherIcon(w) else VeilIcons.Pin2,
-                title = state.weatherPlace ?: "No location set",
-                subtitle = (w?.let { "${it.tempC}° now · " } ?: "") + "Change location",
-                modifier = Modifier.focusRequester(weatherButton),
+            Section("IV", "Home")
+            IndexRow(
+                "Weather", state.weatherPlace ?: "Set place", modifier = Modifier.focusRequester(weatherButton),
                 onClick = { state.weatherPicker = true },
             )
-        }
+            IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
+            IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
+            IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
 
-        // Seasonal touches
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("SOUNDS, SEASONAL & PRIVACY")
-            MenuButton(
-                icon = VeilIcons.Note,
-                title = "Interface sounds: " + if (state.sounds) "on" else "off",
-                subtitle = "Soft ticks and chimes as you move around",
-                onClick = state::toggleSounds,
-            )
-            MenuButton(
-                icon = if (Seasons.isWinter()) VeilIcons.Snowflake else VeilIcons.Sparkle,
-                title = "Seasonal touches: " + if (state.seasonal) "on" else "off",
-                subtitle = "Snow in December, New Year countdown… in Ambient",
-                onClick = state::toggleSeasonal,
-            )
-            MenuButton(
-                icon = VeilIcons.Lock,
-                title = "Ad-blocking pill: " + if (state.showPrivacy) "shown" else "hidden",
-                subtitle = "System-wide ad and tracker blocking via Private DNS",
-                onClick = state::toggleShowPrivacy,
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Back to close", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.4f),
             )
         }
+    }
+}
 
-        Text("Back to close", fontSize = 8.5.sp, color = Veil.Text.copy(alpha = 0.45f))
+/** "I  WALLPAPER ————": a roman numeral in the serif, the name in small caps, then a hairline rule. */
+@Composable
+private fun Section(numeral: String, name: String) {
+    Row(Modifier.padding(top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(numeral, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp, color = Veil.Accent)
+        Spacer(Modifier.width(9.dp))
+        Text(name.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp, color = Veil.Text.copy(alpha = 0.6f))
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f).height(1.dp).background(Veil.Line))
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) =
-    Text(text, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Veil.Text.copy(alpha = 0.55f))
+private fun Note(text: String) = Text(
+    text, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 10.sp,
+    color = Veil.Text.copy(alpha = 0.5f), modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
+)
 
+/**
+ * One line of the index: the setting on the left, its value on the right (small caps in the accent colour,
+ * or the photo title in serif italics). Focus fills the line in bone with dark text, like the dock.
+ */
 @Composable
-private fun MenuButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
+private fun IndexRow(
+    label: String,
+    value: String? = null,
     modifier: Modifier = Modifier,
+    serifValue: Boolean = false,
+    arrow: Boolean = false,
+    swatch: Color? = null,
     onClick: () -> Unit,
 ) {
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = { Sfx.select(); onClick() },
-        modifier = modifier.fillMaxWidth().focusSound(1.12f),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        modifier = modifier.fillMaxWidth().focusSound(1.05f).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.White.copy(alpha = 0.06f), contentColor = Veil.Text,
+            containerColor = Color.Transparent, contentColor = Veil.Text,
             focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            val onWhite = LocalContentColor.current == Veil.Ink
-            Box(
-                Modifier.size(30.dp).clip(RoundedCornerShape(10.dp))
-                    .background(if (onWhite) Veil.Ink.copy(alpha = 0.08f) else Veil.Accent.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = if (onWhite) Veil.Ink else Veil.Accent)
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
+            if (swatch != null) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(swatch))
+                Spacer(Modifier.width(7.dp))
             }
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(subtitle, fontSize = 9.sp, color = dimColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val valueColor = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Accent
+            when {
+                value != null && serifValue -> Text(
+                    value, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 13.sp,
+                    color = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Text.copy(alpha = 0.7f),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 190.dp),
+                )
+                value != null -> Text(
+                    value.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp,
+                    color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 190.dp),
+                )
             }
+            if (arrow) Text("→", fontSize = 12.sp, color = valueColor)
         }
     }
 }
 
-/** One option of a two-way switch: selected = accent outline + check. */
-@Composable
-private fun ModeChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Surface(
-        onClick = { Sfx.select(); onClick() },
-        modifier = modifier.focusSound(1.12f),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Veil.Accent.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.06f),
-            contentColor = Veil.Text,
-            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
-        ),
-        border = ClickableSurfaceDefaults.border(
-            border = if (selected) Border(BorderStroke(1.5.dp, Veil.Accent), shape = RoundedCornerShape(50)) else Border.None,
-            focusedBorder = Border.None,
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-    ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            val onWhite = LocalContentColor.current == Veil.Ink
-            Icon(
-                if (selected) VeilIcons.Check else icon, contentDescription = null, modifier = Modifier.size(12.dp),
-                tint = if (onWhite) Veil.Ink else if (selected) Veil.Accent else Veil.Text,
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-/** A round theme preview: the theme's background, an accent glow, and its glyph. */
-@Composable
-private fun ThemeBubble(theme: VeilThemeSpec, selected: Boolean, onClick: () -> Unit, onFocus: (Boolean) -> Unit) {
-    Surface(
-        onClick = { Sfx.select(); onClick() },
-        modifier = Modifier.size(32.dp).onFocusChanged { onFocus(it.isFocused) }.focusSound(1.25f),
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = theme.bg, focusedContainerColor = theme.bg),
-        border = ClickableSurfaceDefaults.border(
-            border = if (selected) Border(BorderStroke(2.dp, theme.accent), shape = CircleShape)
-            else Border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), shape = CircleShape),
-            focusedBorder = Border(BorderStroke(2.5.dp, Color.White), shape = CircleShape),
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.22f),
-    ) {
-        Box(
-            Modifier.size(32.dp).background(
-                Brush.radialGradient(listOf(theme.accent.copy(alpha = 0.45f), Color.Transparent), radius = 40f),
-            ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(theme.glyph(), contentDescription = theme.name, modifier = Modifier.size(14.dp), tint = theme.accent)
-        }
-        if (selected) {
-            Box(
-                Modifier.align(Alignment.BottomEnd).size(11.dp).clip(CircleShape).background(theme.accent),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(VeilIcons.Check, contentDescription = "Active", modifier = Modifier.size(8.dp), tint = Veil.Ink)
-            }
-        }
-    }
-}
-
-/** Weather location search: the TV keyboard (with voice) opens right away; results update as you type. */
 @Composable
 fun WeatherPicker(state: LauncherState) {
     var query by remember { mutableStateOf("") }

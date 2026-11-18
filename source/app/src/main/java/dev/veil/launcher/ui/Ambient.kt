@@ -141,9 +141,7 @@ fun AmbientScreen(
             Modifier.align(Alignment.TopStart).padding(start = 48.dp, top = 30.dp).alpha(chrome),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(VeilIcons.Lock, contentDescription = null, modifier = Modifier.size(12.dp), tint = Veil.Text.copy(alpha = 0.7f))
-            Spacer(Modifier.width(6.dp))
-            Text("veil", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Veil.Text.copy(alpha = 0.7f))
+            Text("Ravine", fontFamily = Display, fontSize = 22.sp, color = Veil.Text.copy(alpha = 0.7f))
         }
         Row(
             Modifier.align(Alignment.TopEnd).padding(end = 48.dp, top = 24.dp).alpha(chrome),
@@ -157,7 +155,10 @@ fun AmbientScreen(
                 Text("${w.tempC}°", fontSize = 24.sp, color = Veil.Text.copy(alpha = 0.9f))
             }
         }
-        Row(
+        // Ravine: the ad-blocking line only when its pill is turned on in the menu (PROJECT.md D4).
+        val showPrivacy = androidx.compose.ui.platform.LocalContext.current
+            .getSharedPreferences("veil", android.content.Context.MODE_PRIVATE).getBoolean("show_privacy", false)
+        if (showPrivacy) Row(
             Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 30.dp).alpha(chrome),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -434,13 +435,13 @@ private fun WallpaperSlides(walls: List<dev.veil.launcher.data.Wallpaper>) {
         ) { it ->
             Column(Modifier.widthIn(max = 620.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (it.collection.isNotBlank()) {
-                    Text(it.collection.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = Veil.Accent)
+                    Text(it.collection.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = Veil.Accent.copy(alpha = 0.85f))
                 }
-                Text(it.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp, color = Veil.Text)
+                Text(it.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 28.sp, lineHeight = 30.sp, color = Veil.Text.copy(alpha = 0.9f))
                 it.author?.let { a ->
                     Text(
                         "Photograph by $a", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                        fontSize = 11.sp, color = Veil.Text.copy(alpha = 0.7f),
+                        fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.55f),
                     )
                 }
             }

@@ -409,8 +409,8 @@ private fun AppsRow(state: LauncherState, focusKey: (String) -> FocusRequester) 
     val listState = rememberLazyListState()
     LazyRow(
         state = listState,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(start = EDGE, end = EDGE, top = 6.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(start = EDGE - 16.dp, end = EDGE, top = 6.dp, bottom = 4.dp),
         modifier = Modifier.fillMaxWidth()
             .edgeFade(left = listState.canScrollBackward, right = listState.canScrollForward),
     ) {
@@ -525,21 +525,22 @@ private fun WallpaperCaption(wallpaper: dev.veil.launcher.data.Wallpaper, modifi
         modifier = modifier,
         label = "wallpaper-caption",
     ) { w ->
-        Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (w.collection.isNotBlank()) {
                 Text(
-                    w.collection.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.6.sp, color = Veil.Accent,
+                    w.collection.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.6.sp, color = Veil.Accent.copy(alpha = 0.85f),
                 )
             }
             Text(
-                w.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 52.sp, lineHeight = 54.sp,
-                letterSpacing = (-0.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                // Owner: subtle. (Was 52 sp; the photo is the point, the caption is a museum label.)
+                w.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 26.sp, lineHeight = 28.sp,
+                color = Veil.Text.copy(alpha = 0.9f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             w.author?.let {
                 Text(
                     "Photograph by $it", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.7f), // owner: credit a bit smaller
+                    fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.55f),
                 )
             }
         }

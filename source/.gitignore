@@ -8,3 +8,7 @@ local.properties
 build/
 app/build/
 *.apk
+# Robolectric runtime for preview screenshots (150 MB, downloaded on demand)
+.robolectric/
+# Rendered previews
+previews/

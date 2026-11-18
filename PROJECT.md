@@ -64,6 +64,10 @@ They're out of scope.
 | D18 | Film grain: a baked 256 px speckle tile (max 8.5% alpha) repeated over the photo on Home and in Ambient; menu toggle, on by default | Vintage/editorial feel at the cost of one flat layer |
 | D19 | Dock: 26 dp icons and 10.5 sp labels (Veil 30 / 11.5). Hold OK → **Move**, then Left/Right slide the app and OK/Back finish | Owner asked for smaller icons and an easy way to reorder |
 | D20 | Lyrics use the serif display face; earthy two-colour visualizer presets come first (Moss, Redwood, Fog Line, Brass and Pine, Dodger Blue, Silver and Black, Purple and Gold) | One visual language across Home, Ambient and music |
+| D21 | The Ravine menu is a "field guide index": the day and date as masthead, four numbered sections (I Wallpaper, II Ambient, III Look, IV Home), one line per setting with its value in small caps; OK cycles. "With music" (Lyrics / Album art / Visualizer) replaces Veil's music-mode chips and lyrics switch. The wordmark is serif "Ravine" with no pill | Owner found the Veil menu generic and the music/Ambient/visualizer settings confusing |
+| D22 | Dock apps float on the photo: no pill or outline; focus adds a thin bone ring, a slight lift and the app name | Owner's preference (like their Projectivy setup) |
+| D23 | Ambient starts after "Starts after" minutes (default 10; 2/5/10/15/30/never), with or without music | Veil's 30 s with music felt too soon |
+| D24 | Screen previews: Robolectric renders Home, the menu and Ambient to PNGs at 1920×1080 (`PreviewShots`, run with `-Ppreviews`), so design changes are checked without the TV | Owner asked for previews instead of photos |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 
@@ -127,6 +131,10 @@ reads from one of those, or from what it sees locally:
 - Every build is reproducible from CI; no keys in the repo (`keys.properties` and the keystore come from secrets).
 
 ## 8. Build and install
+
+- **Previews:** `cd source && ./gradlew testDebugUnitTest --tests dev.veil.launcher.preview.PreviewShots -Ppreviews`
+  → PNG files in `source/previews/` (git-ignored). The first run downloads Robolectric's 150 MB runtime into
+  `source/.robolectric/`. Photos come from `app/src/test/resources/preview/`; app icons are placeholders.
 
 - CI: `.github/workflows/build.yml`. Secrets: `TMDB_KEY` (required for artwork), `SIMKL_CLIENT_ID`,
   `RAVINE_KEYSTORE_BASE64`, `RAVINE_KEYSTORE_PASSWORD`. Variable: `WEATHER_CITY`.

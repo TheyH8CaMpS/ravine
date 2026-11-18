@@ -1,3 +1,4 @@
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -72,6 +73,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    // Ravine previews (PreviewShots): Robolectric renders screens to PNGs at the Shield's 1920x1080.
+    testOptions { unitTests { isIncludeAndroidResources = true } }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 }
 
@@ -89,4 +92,42 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3") // QR code on the Connect Trakt screen (made on the TV)
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303") // real org.json for JVM unit tests (Android's is a stub there)
+    // Screen previews rendered on the JVM: ./gradlew testDebugUnitTest --tests dev.veil.launcher.preview.PreviewShots -Ppreviews
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Robolectric's Android runtime (150 MB), downloaded once into source/.robolectric and handed to Robolectric in
+// offline mode (its own downloader can't use every proxy; Maven Central also rate-limits, hence the retries).
+val robolectricJar = rootProject.file(".robolectric/android-all-instrumented-14-robolectric-10818077-i6.jar")
+val fetchRobolectricRuntime by tasks.registering {
+    onlyIf { project.hasProperty("previews") && !robolectricJar.exists() }
+    doLast {
+        robolectricJar.parentFile.mkdirs()
+        val url = "https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/" +
+            "14-robolectric-10818077-i6/android-all-instrumented-14-robolectric-10818077-i6.jar"
+        var last: Exception? = null
+        for (attempt in 1..5) {
+            try {
+                URI(url).toURL().openStream().use { input ->
+                    robolectricJar.outputStream().use { input.copyTo(it) }
+                }
+                return@doLast
+            } catch (e: Exception) { last = e; Thread.sleep(15_000L * attempt) }
+        }
+        throw GradleException("Couldn't download the Robolectric runtime", last)
+    }
+}
+
+// Preview screenshots only run when asked for (-Ppreviews), so normal test runs stay fast.
+tasks.withType<Test>().configureEach {
+    // Robolectric loads its runtime before a test can skip itself, so normal runs leave previews out entirely.
+    if (!project.hasProperty("previews")) filter { excludeTestsMatching("*PreviewShots*") }
+    dependsOn(fetchRobolectricRuntime)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", robolectricJar.parentFile.absolutePath)
+    systemProperty("ravine.previews", if (project.hasProperty("previews")) "true" else "false")
+    systemProperty("ravine.previewDir", rootProject.file("previews").absolutePath)
+    maxHeapSize = "2g"
 }

@@ -523,32 +523,76 @@ fun Pill(
 @Composable
 fun dimColor() = LocalContentColor.current.copy(alpha = 0.72f)
 
+/**
+ * Ravine's dock item (PROJECT.md D22): the app's icon floating on the photo, no pill or outline. Focus lifts
+ * it slightly, draws a thin bone ring and shows the app's name underneath. In move mode, arrows flank it.
+ */
 @Composable
 fun AppPill(app: AppEntry, onClick: () -> Unit, onLongClick: (() -> Unit)?, modifier: Modifier = Modifier, moving: Boolean = false) {
-    // Ravine: a more compact dock (26 dp icons, 10.5 sp labels; Veil used 30 / 11.5).
-    Pill(onClick = onClick, onLongClick = onLongClick, modifier = modifier, padding = DOCK_PADDING) {
-        if (moving) Icon(VeilIcons.Left, contentDescription = "Move left", modifier = Modifier.size(10.dp), tint = LocalContentColor.current)
+    DockItem(app.label, onClick, onLongClick, modifier, moving) {
         val icon = app.icon
         if (icon != null) {
-            Image(icon, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(DOCK_ICON).clip(CircleShape))
+            Image(icon, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
         } else {
-            Box(Modifier.size(DOCK_ICON).clip(CircleShape).background(Veil.GlassStrong))
+            Box(Modifier.fillMaxSize().clip(CircleShape).background(Veil.GlassStrong))
         }
-        Text(app.label, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        if (moving) Icon(VeilIcons.Right, contentDescription = "Move right", modifier = Modifier.size(10.dp), tint = LocalContentColor.current)
     }
 }
 
-private val DOCK_ICON = 26.dp
-private val DOCK_PADDING = PaddingValues(start = 5.dp, end = 14.dp, top = 5.dp, bottom = 5.dp)
-
 @Composable
 fun AllAppsPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Pill(onClick = onClick, modifier = modifier, padding = DOCK_PADDING) {
-        Box(Modifier.size(DOCK_ICON).clip(CircleShape).background(Color.White.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-            Icon(VeilIcons.Grid, contentDescription = null, modifier = Modifier.size(13.dp), tint = LocalContentColor.current)
+    DockItem("All apps", onClick, null, modifier) {
+        Box(Modifier.fillMaxSize().clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(VeilIcons.Grid, contentDescription = null, modifier = Modifier.size(14.dp), tint = Veil.Text)
         }
-        Text("All apps", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private val DOCK_ICON = 38.dp
+
+@Composable
+private fun DockItem(
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    modifier: Modifier,
+    moving: Boolean = false,
+    icon: @Composable () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val clear = Color.Transparent
+    Surface(
+        onClick = { Sfx.select(); onClick() },
+        onLongClick = onLongClick,
+        modifier = modifier.focusSound(1f).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = clear, contentColor = Veil.Text,
+            focusedContainerColor = clear, focusedContentColor = Veil.Text,
+            pressedContainerColor = clear, pressedContentColor = Veil.Text,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+    ) {
+        Column(
+            Modifier.width(78.dp).padding(top = 4.dp, bottom = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (moving) Icon(VeilIcons.Left, contentDescription = "Move left", modifier = Modifier.size(10.dp), tint = Veil.Text)
+                Box(
+                    Modifier.padding(horizontal = if (moving) 4.dp else 0.dp).size(DOCK_ICON + 8.dp)
+                        .then(if (focused) Modifier.border(2.dp, Veil.Text, CircleShape) else Modifier)
+                        .padding(4.dp)
+                        .graphicsLayer { alpha = if (focused) 1f else 0.88f },
+                ) { icon() }
+                if (moving) Icon(VeilIcons.Right, contentDescription = "Move right", modifier = Modifier.size(10.dp), tint = Veil.Text)
+            }
+            Text(
+                label, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp).graphicsLayer { alpha = if (focused || moving) 1f else 0f },
+            )
+        }
     }
 }
 
