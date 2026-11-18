@@ -59,7 +59,8 @@ object Lyrics {
      * an IO thread.
      */
     fun load(context: Context, title: String, artist: String?, album: String?, durationMs: Long): Song? {
-        val key = "$title|${artist.orEmpty()}|${album.orEmpty()}|${durationMs / 2000}"
+        // "v2": Ravine's looser matching; ignores "no lyrics" results cached by earlier builds.
+        val key = "v2|$title|${artist.orEmpty()}|${album.orEmpty()}|${durationMs / 2000}"
         val dir = File(context.cacheDir, "lyrics").apply { mkdirs() }
         val file = File(dir, sha1(key) + ".json")
         synchronized(memory) {
@@ -117,11 +118,27 @@ object Lyrics {
             val (code, text) = get(url)
             if (code == 200) return parseRecord(JSONObject(text), durationMs)
         }
+        // 3) Ravine: no version within 6 s (e.g. Spotify's cut is a different length from every LRCLIB entry).
+        // Take the closest one within 25 s, but only its words, paced across the song: its timing belongs to
+        // another cut and would drift. Untimed lyrics beat no lyrics.
+        for (t in listOf(title, cleanTitle(title)).distinct()) {
+            val url = "$API/search?track_name=${enc(t)}" + (mainArtist?.let { "&artist_name=${enc(it)}" } ?: "")
+            val (code, text) = get(url)
+            if (code != 200) continue
+            val near = pickBest(JSONArray(text), t, mainArtist, wantSec, maxOff = 25.0) ?: continue
+            val words = near.str("plainLyrics") ?: near.str("syncedLyrics")?.let { stripLrc(it) } ?: continue
+            estimatePlain(words, durationMs.takeIf { it > 0 } ?: (near.optDouble("duration", 0.0) * 1000).toLong())
+                ?.takeIf { it.lines.isNotEmpty() }?.let { return it }
+        }
         return null
     }
 
+    /** LRC text without its [mm:ss.xx] time tags. */
+    internal fun stripLrc(lrc: String): String =
+        lrc.lines().joinToString("\n") { it.replace(Regex("""\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?]"""), "").trim() }
+
     /** Best search hit: right song, right artist, right length; word-synced > line-synced > plain. */
-    private fun pickBest(results: JSONArray, title: String, artist: String?, wantSec: Int): JSONObject? {
+    internal fun pickBest(results: JSONArray, title: String, artist: String?, wantSec: Int, maxOff: Double = 6.0): JSONObject? {
         var best: JSONObject? = null
         var bestScore = Double.NEGATIVE_INFINITY
         val nt = norm(cleanTitle(title)); val na = artist?.let { norm(it) }
@@ -132,7 +149,7 @@ object Lyrics {
             if (na != null && na.isNotEmpty() && !(ra.contains(na) || na.contains(ra))) continue
             val d = r.optDouble("duration", 0.0)
             val off = if (wantSec > 0 && d > 0) abs(d - wantSec) else 0.0
-            if (off > 6) continue // a different version (live, remix, edit…)
+            if (off > maxOff) continue // a different version (live, remix, edit…)
             val quality = when {
                 r.optBoolean("hasWordSync") -> 3
                 r.optBoolean("hasSyncedLyrics") -> 2
