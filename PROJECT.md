@@ -14,10 +14,15 @@ decision changes.** Don't redesign or rewrite what's recorded here without a sta
 |---|---|
 | Device | NVIDIA Shield TV Pro 2019 (P2897), Tegra X1+, 3 GB RAM, 16 GB storage |
 | OS | Android TV, Android 11 (**API 30**). Matters: see §4 |
-| UI canvas | Designed for 1920×1080 (verify with `adb shell wm size`; video still plays in 4K) |
+| UI canvas | 1920×1080, verified: `wm size` reports physical 3840×2160 with a 1920×1080 override. Video still plays in 4K |
 | Input | Shield remote: D-pad, select, back, home, voice. No touch, no keyboard |
 | Apps | TiviMate, SmartTube, Nuvio (`com.nuvio.tv`), Podcast Addict |
 | Stock home | `com.google.android.tvlauncher` (Android TV). Projectivy Premium currently holds the Home button |
+
+**Backup before Ravine (2026-11-18, via ADB):** screensaver `com.google.android.backdrop/.Backdrop`;
+accessibility services: Projectivy's override only; notification listeners: Google TV recommendations only;
+Private DNS: not set. (`cmd role get-role-holders` doesn't exist on this Android 11 build.) Undo script:
+`tools/undo-ravine.ps1`.
 
 The soundbar, HDR, Dolby Vision and colour-space settings are Shield settings, not launcher features.
 They're out of scope.
