@@ -131,6 +131,8 @@ class PreviewShots {
 
     @Test fun ambient() = shoot("ambient", newState()) { it.startAmbient() }
 
+    @Test fun vizSettings() = shoot("viz-settings", newState()) { it.vizSettingsOpen = true }
+
     private companion object {
         val APPS = listOf(
             Triple("ar.tvplayer.tv", "TiviMate", 0xFF1E88E5.toInt()),

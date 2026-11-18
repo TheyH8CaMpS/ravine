@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 
 package dev.veil.launcher.ui
 
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -46,8 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -72,17 +73,30 @@ fun VizSettingsDialog(state: LauncherState) {
     val nextButton = remember { FocusRequester() }
     var presetName by remember { mutableStateOf("") }
 
-    Dialog(onDismissRequest = { Sfx.back(); close() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    // Ravine: a layer inside the main window, not a Dialog. On the Shield a live GLSurfaceView in a separate
+    // dialog window never received input focus: key presses went nowhere and Android killed Ravine for not
+    // responding (ANR "does not have a focused window"). Ambient's in-window visualizer never had that problem.
+    BackHandler { Sfx.back(); close() }
+    val shape = RoundedCornerShape(10.dp)
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
         Row(
             // No accessibility tree (see MainActivity): the live preview would rebuild it every frame.
-            Modifier.clearAndSetSemantics { }.width(760.dp).clip(RoundedCornerShape(22.dp)).background(Veil.Sheet)
-                .border(1.dp, Veil.Line, RoundedCornerShape(22.dp)).padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            Modifier.clearAndSetSemantics { }
+                // Keep the remote inside this layer (Home is still composed underneath).
+                .focusProperties { exit = { FocusRequester.Cancel } }.focusGroup()
+                .width(780.dp).clip(shape).background(Veil.Sheet).border(1.dp, Veil.Line, shape)
+                .padding(22.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             // Live preview
-            Column(Modifier.width(400.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Visualizer", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                Box(Modifier.fillMaxWidth().height(225.dp).clip(RoundedCornerShape(14.dp)).background(Color.Black)) {
+            Column(Modifier.width(400.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Visualizer", fontFamily = Display, fontSize = 32.sp, lineHeight = 34.sp)
+                Text(
+                    "Play some music to see it react", fontFamily = Display,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.6f),
+                )
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.fillMaxWidth().height(225.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black)) {
                     VizPreview(onPreset = { presetName = it })
                     Text(
                         presetName, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
@@ -92,8 +106,8 @@ fun VizSettingsDialog(state: LauncherState) {
                     )
                 }
                 Text(
-                    "Play some music to see it react. Left/Right adjusts a slider · Back to close.",
-                    fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.55f),
+                    "Left and right adjust a setting  ·  Back to close", fontFamily = Display,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.45f),
                 )
             }
             // Sliders
@@ -184,17 +198,17 @@ private fun VSlider(
                 onChange(next)
                 true
             },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.White.copy(alpha = 0.05f), contentColor = Veil.Text,
             focusedContainerColor = Color.White.copy(alpha = 0.12f), focusedContentColor = Veil.Text,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(BorderStroke(1.5.dp, Veil.Accent), shape = RoundedCornerShape(14.dp)),
+            focusedBorder = Border(BorderStroke(1.5.dp, Veil.Accent), shape = RoundedCornerShape(6.dp)),
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
     ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 if (focused) Text("‹  ", fontSize = 11.sp, color = Veil.Accent)
@@ -217,17 +231,17 @@ private fun VToggle(label: String, hint: String, on: Boolean, modifier: Modifier
     Surface(
         onClick = { if (on) Sfx.off() else Sfx.on(); onToggle() },
         modifier = modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }.focusSound(1.12f),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.White.copy(alpha = 0.05f), contentColor = Veil.Text,
             focusedContainerColor = Color.White.copy(alpha = 0.12f), focusedContentColor = Veil.Text,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(BorderStroke(1.5.dp, Veil.Accent), shape = RoundedCornerShape(14.dp)),
+            focusedBorder = Border(BorderStroke(1.5.dp, Veil.Accent), shape = RoundedCornerShape(6.dp)),
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
     ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 if (focused) Text(hint, fontSize = 8.5.sp, color = Veil.Text.copy(alpha = 0.6f))
