@@ -88,4 +88,5 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.google.zxing:core:3.5.3") // QR code on the Connect Trakt screen (made on the TV)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303") // real org.json for JVM unit tests (Android's is a stub there)
 }

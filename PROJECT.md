@@ -47,6 +47,10 @@ They're out of scope.
 | D8 | CI builds every push; tags publish `ravine.apk` to GitHub Releases | No computer needs to stay on; the Shield installs from a fixed URL |
 | D9 | A stable release key from GitHub secrets (`RAVINE_KEYSTORE_*`) | Veil's debug-key signing makes each build machine's APK unable to update another's |
 | D10 | Never disable or uninstall system packages, including the stock launcher | Inherited from Veil's install rules: debloating boot-looped a TV |
+| D11 | Local Nuvio history is the default Continue Watching source, recorded by `MediaListener` in the background | Ravine is stopped while Nuvio plays, so the on-screen tracker never sees the end of an episode. Needs notification access (granted over ADB) |
+| D12 | Home starts with focus on the app dock, so the wallpaper is what you see first | Show artwork appears only when you move up into Continue Watching |
+| D13 | Instrument Serif (OFL) is the display face: clock and wallpaper titles. Manrope stays for UI text | The editorial/vintage direction in §2 |
+| D14 | Themes: Ravine (forest + brass, default), Canyon (bark + terracotta), Chavez (night blue). Veil's themes stay selectable | Text colour is warm "bone" instead of cool white |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 
@@ -84,7 +88,10 @@ reads from one of those, or from what it sees locally:
 ## 6. Roadmap
 
 - **M0: Foundation** ✅ fork, rename, CI APK build, stable signing, this file.
-- **M1: Make it Ravine.** Palette and type, wallpaper engine (feed + cache + collections + captions +
+- **M1: Make it Ravine.** *In progress.* Done: themes and bone text, serif clock and captions, wallpaper engine
+  (feed, offline copy, daily shuffle, 10-min rotation, prefetch, "Next wallpaper" in the menu), editorial
+  caption, dock defaults, ad-blocking pill hidden, local Nuvio history (pulled forward from M2). Still to do:
+  film grain, earthy visualizer presets, lyrics restyle, screenshot tests. Original M1 scope: Palette and type, wallpaper engine (feed + cache + collections + captions +
   pan/zoom + grain), app dock (TiviMate, SmartTube, Nuvio, Podcast Addict, All apps), restyled lyrics and
   visualizer with earthy presets, NextDNS hidden. Install alongside Projectivy; nothing changes on the
   Shield's Home button yet.

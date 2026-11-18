@@ -51,5 +51,16 @@ class Tmdb(private val key: String) {
         return art
     }
 
+    /** Ravine: a raw TMDB v3 GET ("search/tv", "tv/123"…) with optional query params, or null on failure. */
+    fun get(path: String, query: String = ""): JSONObject? {
+        if (!enabled) return null
+        val v4 = key.startsWith("eyJ")
+        val params = listOfNotNull(query.takeIf { it.isNotBlank() }, if (v4) null else "api_key=$key").joinToString("&")
+        val url = "https://api.themoviedb.org/3/$path" + (if (params.isEmpty()) "" else "?$params")
+        val headers = if (v4) mapOf("Authorization" to "Bearer $key") else emptyMap()
+        val (code, text) = runCatching { Http.call("GET", url, headers) }.getOrNull() ?: return null
+        return if (code == 200) runCatching { JSONObject(text) }.getOrNull() else null
+    }
+
     companion object { private const val IMG = "https://image.tmdb.org/t/p" }
 }

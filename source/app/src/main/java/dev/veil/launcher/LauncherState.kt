@@ -17,6 +17,8 @@ import dev.veil.launcher.data.PrivateDns
 import dev.veil.launcher.data.Weather
 import dev.veil.launcher.data.Tmdb
 import dev.veil.launcher.data.Trakt
+import dev.veil.launcher.data.Wallpapers
+import dev.veil.launcher.data.LocalHistory
 import dev.veil.launcher.data.VeilCache
 import dev.veil.launcher.data.WatchItem
 import dev.veil.launcher.ui.ThemeState
@@ -130,6 +132,57 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     /** Snow in December, fireworks at New Year… in Veil Ambient only. */
     var seasonal by mutableStateOf(prefs.getBoolean("seasonal", true))
         private set
+
+    // ---- Wallpapers (Ravine) ---------------------------------------------------------------------
+
+    val wallpapers = Wallpapers(context)
+    /** The photo behind Home while no Continue Watching card has focus. */
+    var wallpaper by mutableStateOf(wallpapers.at(wallpapers.step))
+        private set
+    /** Which part of Home has focus: "cw" (Continue Watching), "app", "all-apps"… Drives the backdrop. */
+    var focusArea by mutableStateOf("")
+    private var lastWallpaperFeed = 0L
+    private var lastRotate = System.currentTimeMillis()
+
+    /** Next photo now (also used by the menu's "Next wallpaper"), and warm the cache for the one after. */
+    fun nextWallpaper() {
+        wallpapers.step = wallpapers.step + 1
+        wallpaper = wallpapers.at(wallpapers.step)
+        lastRotate = System.currentTimeMillis()
+        prefetchWallpaper()
+    }
+
+    private fun prefetchWallpaper() {
+        val next = wallpapers.at(wallpapers.step + 1) ?: return
+        runCatching {
+            coil.Coil.imageLoader(context).enqueue(
+                coil.request.ImageRequest.Builder(context).data(next.url).size(1920, 1080).build(),
+            )
+        }
+    }
+
+    /** Feed every 6 h; rotation on the configured interval, only while Home is what's on screen. */
+    private fun tickWallpapers(now: Long) {
+        if (now - lastWallpaperFeed > 6 * 60 * 60_000L) {
+            lastWallpaperFeed = now
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) { wallpapers.refresh() }
+                if (ok && wallpaper == null) { wallpaper = wallpapers.at(wallpapers.step); prefetchWallpaper() }
+            }
+        }
+        val idleOnHome = screen == Screen.HOME && !ambient && focusArea != "cw"
+        if (idleOnHome && now - lastRotate >= wallpapers.rotateMinutes * 60_000L) nextWallpaper()
+    }
+
+    /** Ravine: whether the ad-blocking (Private DNS) pill shows in the top bar. Off by default. */
+    var showPrivacy by mutableStateOf(prefs.getBoolean("show_privacy", false))
+        private set
+
+    fun toggleShowPrivacy() {
+        showPrivacy = !showPrivacy
+        prefs.edit().putBoolean("show_privacy", showPrivacy).apply()
+    }
+
     fun toggleSeasonal() {
         seasonal = !seasonal
         prefs.edit().putBoolean("seasonal", seasonal).apply()
@@ -195,7 +248,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
 
     fun refreshWatching(force: Boolean = false) {
         connected = trakt.isConnected
-        if (!connected || loading) return
+        if (!connected) { refreshLocal(force); return }
+        if (loading) return
         val now = System.currentTimeMillis()
         if (!force && now - lastLoad < 30_000) return
         lastLoad = now
@@ -214,6 +268,34 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
             } finally {
                 loading = false
                 connected = trakt.isConnected
+            }
+        }
+    }
+
+    /**
+     * Ravine: Continue Watching from what Nuvio played on this TV (no account; PROJECT.md §5). Used whenever
+     * Trakt isn't connected. Recorded in the background by [MediaListener].
+     */
+    private fun refreshLocal(force: Boolean) {
+        if (loading) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastLoad < 15_000) return
+        lastLoad = now
+        LocalHistory.init(context)
+        scope.launch {
+            loading = true
+            try {
+                val result = withContext(Dispatchers.IO) { LocalHistory.items(tmdb) }
+                items = result
+                VeilCache.items = result
+                val keep = result.firstOrNull { it.key == focused?.key }
+                focused = keep ?: result.firstOrNull()
+                focusedIndex = if (keep != null) result.indexOf(keep) else 0
+                error = null
+            } catch (e: Exception) {
+                error = "Couldn't load your history"
+            } finally {
+                loading = false
             }
         }
     }
@@ -270,6 +352,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         dnsResumeAt = dns.resumeAt
         val now = System.currentTimeMillis()
         minuteTick = now
+        tickWallpapers(now)
         // A pause that ended while the alarm was delayed: resume now.
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()
         if (weatherSource.enabled && now - lastWeather > 30 * 60_000) {
@@ -314,7 +397,11 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun markWatched(item: WatchItem) = traktAction(item, "Marked ${label(item)} as watched") { trakt.markWatched(item) }
 
     /** Clears progress on Trakt and hides the show from Trakt's progress (Up Next). */
-    fun removeFromRow(item: WatchItem) = traktAction(item, "Removed ${item.title} from Continue Watching") { trakt.removeFromProgress(item) }
+    fun removeFromRow(item: WatchItem) = if (!connected) {
+        LocalHistory.hide(item.key)
+        items = items.filter { it.key != item.key }
+        showToast("Removed ${item.title} from Continue Watching")
+    } else traktAction(item, "Removed ${item.title} from Continue Watching") { trakt.removeFromProgress(item) }
 
     private fun traktAction(item: WatchItem, done: String, call: () -> Boolean) {
         items = items.filterNot { it.key == item.key }          // instant feedback
@@ -620,10 +707,13 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
 
     companion object {
         const val NUVIO = "com.nuvio.tv"
+        /** Ravine's dock. Apps that aren't installed are skipped (both SmartTube channels are listed). */
         val DEFAULT_PINS = listOf(
-            "io.gh.reisxd.tizentube.cobalt",
+            "ar.tvplayer.tv", // TiviMate
+            "com.teamsmart.videomanager.tv", // SmartTube (stable)
+            "com.liskovsoft.smarttubetv.beta", // SmartTube (beta)
             NUVIO,
-            "com.spotify.tv.android",
+            "com.bambuna.podcastaddict", // Podcast Addict
         )
     }
 }

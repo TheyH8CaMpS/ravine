@@ -34,6 +34,11 @@ data class VeilThemeSpec(
 
 object Themes {
     val all = listOf(
+        // Ravine: forest green with a warm brass accent (the default), canyon bark with terracotta,
+        // and Chavez Ravine night blue.
+        VeilThemeSpec("ravine", "Ravine", Color(0xFF131A15), Color(0xFFC9A96E)) { VeilIcons.Star },
+        VeilThemeSpec("canyon", "Canyon", Color(0xFF1A1512), Color(0xFFD48A5E)) { VeilIcons.Flame },
+        VeilThemeSpec("chavez", "Chavez", Color(0xFF0F141C), Color(0xFF6FA3E0)) { VeilIcons.Moon },
         VeilThemeSpec("veil", "Veil", Color(0xFF15171C), Color(0xFFD9FF6B)) { VeilIcons.Lock },
         VeilThemeSpec("aurora", "Aurora", Color(0xFF0E1621), Color(0xFF5EF0C2)) { VeilIcons.Wave },
         VeilThemeSpec("ember", "Ember", Color(0xFF1B1411), Color(0xFFFFA45C)) { VeilIcons.Flame },
@@ -71,8 +76,9 @@ object Veil {
     val Bg: Color get() = ThemeState.current.bg
     /** The theme's accent, or the focused artwork's colour when "Colours from artwork" is on. */
     val Accent: Color get() = ArtTint.accent ?: ThemeState.current.accent
-    val Text = Color(0xFFF4F5F7)
-    val Ink = Color(0xFF111318)
+    /** Warm off-white ("bone") instead of Veil's cool white, to sit with the earthy palette. */
+    val Text = Color(0xFFEDE7DA)
+    val Ink = Color(0xFF121412)
     /** Menus are frosted glass: slightly see-through over the blurred page behind them. */
     val Sheet: Color get() = lerp(ThemeState.current.bg, Color.White, 0.1f).copy(alpha = 0.93f)
     val Glass = Color.White.copy(alpha = 0.08f)
@@ -87,6 +93,12 @@ private fun manrope(weight: Int) = Font(
 )
 
 val Manrope = FontFamily(manrope(400), manrope(500), manrope(600), manrope(700), manrope(800))
+
+/** Ravine's editorial display face (clock, wallpaper titles). One weight; italic for captions. */
+val Display = FontFamily(
+    Font(R.font.instrument_serif, FontWeight.Normal),
+    Font(R.font.instrument_serif_italic, FontWeight.Normal, androidx.compose.ui.text.font.FontStyle.Italic),
+)
 
 @Composable
 fun VeilTheme(content: @Composable () -> Unit) {

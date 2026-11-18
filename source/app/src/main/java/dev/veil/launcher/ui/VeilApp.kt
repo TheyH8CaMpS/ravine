@@ -125,7 +125,8 @@ private fun PrivacyMenu(state: LauncherState) {
 private fun WatchMenu(state: LauncherState, item: WatchItem) {
     val actions = listOf(
         SheetAction("Play", VeilIcons.Play) { state.open(item) },
-        SheetAction("Mark as watched", VeilIcons.Check) { state.markWatched(item) },
+        // Marking watched writes to Trakt; local history (no account) only supports removing.
+        *(if (state.connected) arrayOf(SheetAction("Mark as watched", VeilIcons.Check) { state.markWatched(item) }) else emptyArray()),
         SheetAction("Remove from Continue Watching", VeilIcons.Unpin) { state.removeFromRow(item) },
     )
     val title = if (item.isMovie) item.title else "${item.title} · S${item.season} E${item.episode}"

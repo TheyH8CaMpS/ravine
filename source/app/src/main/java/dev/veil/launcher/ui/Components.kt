@@ -169,7 +169,7 @@ object VeilIcons {
 // ---- Top bar (from concept B "Halo") -----------------------------------------------------------
 
 @Composable
-fun Clock(fontSize: TextUnit = 17.sp) {
+fun Clock(fontSize: TextUnit = 24.sp) {
     val context = LocalContext.current
     val time by produceState(initialValue = "") {
         while (true) {
@@ -177,7 +177,8 @@ fun Clock(fontSize: TextUnit = 17.sp) {
             delay(5_000)
         }
     }
-    Text(time, fontSize = fontSize, fontWeight = FontWeight.Normal, letterSpacing = 0.3.sp)
+    // Ravine: the clock is set in the serif display face (it reads smaller than Manrope, hence 24 sp).
+    Text(time, fontSize = fontSize, fontFamily = Display, fontWeight = FontWeight.Normal, letterSpacing = 0.2.sp)
 }
 
 @Composable
@@ -209,7 +210,8 @@ fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
             LaunchedEffect(privacyFocused) {
                 if (privacyFocused) { delay(200); state.onPrivacyFocus(true) } else state.onPrivacyFocus(false)
             }
-            PrivacyPill(state, Modifier.onFocusChanged { privacyFocused = it.isFocused })
+            // Ravine: the ad-blocking pill is off unless turned on in the menu (PROJECT.md D4).
+            if (state.showPrivacy) PrivacyPill(state, Modifier.onFocusChanged { privacyFocused = it.isFocused })
             Surface(
                 onClick = { Sfx.select(); state.openSettings() },
                 modifier = Modifier.size(30.dp).focusSound(1.12f),
@@ -231,7 +233,7 @@ fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
         ) {
             // Built once and kept (invisible) while on Home, so focusing the pill only fades it in; it used
             // to be built from scratch on every open, which froze a few frames. It has nothing focusable.
-            if (state.dnsAvailable) {
+            if (state.dnsAvailable && state.showPrivacy) {
                 val open = state.privacyFocused
                 val shown by animateFloatAsState(if (open) 1f else 0f, tween(if (open) 200 else 120), label = "privacy-panel")
                 Box(

@@ -194,6 +194,13 @@ private fun VeilPanel(state: LauncherState) {
 
         // Ambient
         MenuButton(icon = VeilIcons.Sparkle, title = "Start Ravine Ambient", subtitle = "Screensaver & music mode", onClick = state::startAmbient)
+        MenuButton(
+            icon = VeilIcons.Star,
+            title = "Next wallpaper",
+            subtitle = state.wallpaper?.let { listOfNotNull(it.title.takeIf(String::isNotBlank), it.collection.takeIf(String::isNotBlank)).joinToString(" · ") }
+                ?: "Loading your wallpaper library…",
+            onClick = state::nextWallpaper,
+        )
 
         // Music mode: what Veil Ambient shows while music plays
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -271,7 +278,7 @@ private fun VeilPanel(state: LauncherState) {
 
         // Seasonal touches
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("SOUNDS & SEASONAL")
+            SectionLabel("SOUNDS, SEASONAL & PRIVACY")
             MenuButton(
                 icon = VeilIcons.Note,
                 title = "Interface sounds: " + if (state.sounds) "on" else "off",
@@ -283,6 +290,12 @@ private fun VeilPanel(state: LauncherState) {
                 title = "Seasonal touches: " + if (state.seasonal) "on" else "off",
                 subtitle = "Snow in December, New Year countdown… in Ambient",
                 onClick = state::toggleSeasonal,
+            )
+            MenuButton(
+                icon = VeilIcons.Lock,
+                title = "Ad-blocking pill: " + if (state.showPrivacy) "shown" else "hidden",
+                subtitle = "System-wide ad and tracker blocking via Private DNS",
+                onClick = state::toggleShowPrivacy,
             )
         }
 

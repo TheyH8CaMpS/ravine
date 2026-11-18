@@ -79,6 +79,11 @@ private val EDGE = 48.dp
 @Composable
 fun HomeScreen(state: LauncherState) {
     val hero = state.focused ?: state.items.firstOrNull()
+    // Ravine: the wallpaper is Home's picture. A show's artwork takes over only while a Continue Watching
+    // card has focus (PROJECT.md §2); without a wallpaper yet, fall back to the show as Veil did.
+    val wallpaper = state.wallpaper
+    val showArt = hero != null && (state.focusArea == "cw" || wallpaper == null)
+    val backdropUrl = if (showArt) hero?.backdrop else wallpaper?.url
     val firstFocus = remember { FocusRequester() }
     val requesters = remember { HashMap<String, FocusRequester>() }
     val focusKey: (String) -> FocusRequester = { k -> requesters.getOrPut(k) { FocusRequester() } }
@@ -89,12 +94,14 @@ fun HomeScreen(state: LauncherState) {
         delay(60)
         val last = state.lastFocusKey?.let { requesters[it] }
         val ok = last != null && runCatching { last.requestFocus() }.isSuccess
-        if (!ok) runCatching { firstFocus.requestFocus() }
+        // Ravine: start on the app dock (wallpaper in view), not on a show.
+        val dock = (state.pinnedApps.firstOrNull()?.let { "app:${it.pkg}" } ?: "all-apps").let { requesters[it] }
+        if (!ok && !(dock != null && runCatching { dock.requestFocus() }.isSuccess)) runCatching { firstFocus.requestFocus() }
     }
 
     // Colour and frost come from the small card image (the same picture as the 4K backdrop): both are
     // shrunk to ~100-200 px anyway, so decoding the 4K original three times per card change was wasted.
-    val smallArt = hero?.thumb ?: hero?.backdrop
+    val smallArt = if (showArt) hero?.thumb ?: hero?.backdrop else wallpaper?.url
     ArtTintEffect(smallArt, active = !state.veilMenuOpen)
 
     // Check title logos ahead of time, so the hero can show them without a text-to-logo swap.
@@ -124,7 +131,7 @@ fun HomeScreen(state: LauncherState) {
     Box(Modifier.fillMaxSize().background(Veil.Bg)) {
         // The drift also holds still while Veil Ambient covers Home (nobody can see it, and it cost frames).
         // (Lite mode: no drift at all; on slow TVs redrawing the full-screen artwork costs frames.)
-        Backdrop(hero?.backdrop, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE)
+        Backdrop(backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE)
         // Frost: the pre-blurred artwork fades in over the real one (cheap; a live blur is too slow here).
         val fi = frostImg
         if (fi != null) {
@@ -142,7 +149,8 @@ fun HomeScreen(state: LauncherState) {
             TopBar(state, modifier = Modifier.zIndex(1f).recede(frostTop).padding(horizontal = EDGE))
             Spacer(Modifier.weight(1f))
             Column(Modifier.recede(frost)) {
-                Hero(hero, state, Modifier.padding(horizontal = EDGE))
+                if (showArt || wallpaper == null) Hero(hero, state, Modifier.padding(horizontal = EDGE))
+                else WallpaperCaption(wallpaper, Modifier.padding(horizontal = EDGE))
                 Spacer(Modifier.height(24.dp))
                 ContinueRow(state, firstFocus, focusKey)
                 Spacer(Modifier.height(14.dp))
@@ -195,7 +203,7 @@ private fun Backdrop(url: String?, paused: Boolean = false) {
                 },
             )
         } else {
-            Box(Modifier.fillMaxSize().background(Color(0xFF1E2430)))
+            Box(Modifier.fillMaxSize().background(Color(0xFF1F2B22))) // forest, until a picture loads
         }
     }
 }
@@ -225,13 +233,13 @@ private fun Hero(hero: WatchItem?, state: LauncherState, modifier: Modifier) {
 private fun HeroBody(hero: WatchItem?, state: LauncherState) {
     Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (hero == null) {
-            Text("PRIVATE BY DESIGN", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
+            Text("CONTINUE WATCHING", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
             Text(
                 if (state.connected) "Welcome back" else "Welcome to Ravine",
                 fontSize = 48.sp, lineHeight = 48.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.6).sp,
             )
             Text(
-                if (state.connected) "Your shows will appear here." else "No ads. No tracking. Just your stuff.",
+                "Your shows from Nuvio will appear here.",
                 fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.85f),
             )
             return@Column
@@ -298,13 +306,12 @@ private fun ContinueRow(state: LauncherState, firstFocus: FocusRequester, focusK
             modifier = Modifier.fillMaxWidth().edgeFade(left = listState.canScrollBackward, right = listState.canScrollForward),
         ) {
             when {
-                !state.connected -> item {
-                    MessagePill("Connect Trakt", "Show what you're watching in Nuvio", state::startConnect, Modifier.focusRequester(firstFocus))
-                }
                 state.items.isEmpty() -> item {
+                    // Ravine: no account needed. The row fills from what Nuvio plays on this TV.
                     MessagePill(
                         if (state.loading) "Loading…" else (state.error ?: "Nothing in progress"),
-                        if (state.loading) "Fetching from Trakt" else "Start something in Nuvio",
+                        if (state.loading) (if (state.connected) "Fetching from Trakt" else "Checking your history")
+                        else "Start something in Nuvio and it appears here",
                         { state.refreshWatching(force = true) },
                         Modifier.focusRequester(firstFocus),
                     )
@@ -449,6 +456,48 @@ private fun doneByText(minutes: Int, now: Long): String {
     }
 }
 
-/** Lets Home return focus to this item later, and records it as the last one used. */
+/** Lets Home return focus to this item later, and records it as the last one used (and which row it's in). */
 private fun Modifier.remembered(state: LauncherState, key: String, focusKey: (String) -> FocusRequester): Modifier =
-    this.focusRequester(focusKey(key)).onFocusChanged { if (it.isFocused) state.lastFocusKey = key }
+    this.focusRequester(focusKey(key)).onFocusChanged {
+        if (it.isFocused) { state.lastFocusKey = key; state.focusArea = key.substringBefore(':') }
+    }
+
+/**
+ * Ravine's editorial caption for the current wallpaper: the collection as a small eyebrow, the photo's
+ * title large in the serif face, and the photographer in italics. Crossfades with each new photo.
+ */
+@Composable
+private fun WallpaperCaption(wallpaper: dev.veil.launcher.data.Wallpaper, modifier: Modifier) {
+    val rise = with(LocalDensity.current) { 10.dp.roundToPx() }
+    AnimatedContent(
+        targetState = wallpaper,
+        contentKey = { it.url },
+        transitionSpec = {
+            (fadeIn(tween(700, delayMillis = 200)) +
+                slideInVertically(tween(800, delayMillis = 200, easing = FastOutSlowInEasing)) { rise }) togetherWith
+                fadeOut(tween(250)) using SizeTransform(clip = false)
+        },
+        contentAlignment = Alignment.BottomStart,
+        modifier = modifier,
+        label = "wallpaper-caption",
+    ) { w ->
+        Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (w.collection.isNotBlank()) {
+                Text(
+                    w.collection.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.6.sp, color = Veil.Accent,
+                )
+            }
+            Text(
+                w.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 52.sp, lineHeight = 54.sp,
+                letterSpacing = (-0.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            w.author?.let {
+                Text(
+                    "Photograph by $it", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    fontSize = 15.sp, color = Veil.Text.copy(alpha = 0.75f),
+                )
+            }
+        }
+    }
+}
