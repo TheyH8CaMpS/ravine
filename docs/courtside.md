@@ -31,6 +31,13 @@ strip. It goes live only after the owner merges and deploys #201 and sets the se
    values into private storage and deletes the file. Delete the PC copy too.
 4. The menu's Game day section says "Channel names from Courtside" once it's set up.
 
+Gotcha: Windows Notepad saves `courtside.properties.txt` and hides the `.txt`. Push it under the right name:
+`adb push courtside.properties.txt /sdcard/Android/data/app.ravine.launcher/files/courtside.properties`.
+
+**Status (2026-11-18):** #201 merged; `COURTSIDE_TV_TOKEN` set in Sites; the file was imported on the Shield and
+the menu shows "Channel names from Courtside". Still to confirm with a real game: the strip showing the
+provider channel instead of ESPN's name.
+
 To rotate: push a new file. To remove: clear Ravine's data, or unset the Sites secret (Ravine then quietly falls
 back to ESPN's network name).
 
