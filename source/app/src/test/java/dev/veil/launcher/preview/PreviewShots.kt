@@ -137,6 +137,9 @@ class PreviewShots {
 
     @Test fun home() = shoot("home", newState())
 
+    /** Nothing in progress: no Continue Watching row (owner, minimalist). */
+    @Test fun homeEmpty() = shoot("home-empty", newState()) { it.items = emptyList() }
+
     // The menu normally opens when its wordmark has focus; here it's opened directly once Home has settled.
     @Test fun menu() = shoot("menu", newState()) { it.veilMenuOpen = true }
 

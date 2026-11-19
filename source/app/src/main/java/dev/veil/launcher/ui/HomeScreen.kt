@@ -161,8 +161,11 @@ fun HomeScreen(state: LauncherState) {
                 if (showArt || wallpaper == null) Hero(hero, state, Modifier.padding(horizontal = EDGE))
                 else WallpaperCaption(wallpaper, Modifier.padding(horizontal = EDGE))
                 Spacer(Modifier.height(24.dp))
-                ContinueRow(state, firstFocus, focusKey)
-                Spacer(Modifier.height(14.dp))
+                // Owner: nothing in progress → no row at all (minimalist).
+                if (state.items.isNotEmpty()) {
+                    ContinueRow(state, firstFocus, focusKey)
+                    Spacer(Modifier.height(14.dp))
+                }
                 AppsRow(state, focusKey)
             }
         }
@@ -528,19 +531,19 @@ private fun WallpaperCaption(wallpaper: dev.veil.launcher.data.Wallpaper, modifi
         Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (w.collection.isNotBlank()) {
                 Text(
-                    w.collection.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.6.sp, color = Veil.Accent.copy(alpha = 0.85f),
+                    w.collection.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.4.sp, color = Veil.Accent.copy(alpha = 0.85f),
                 )
             }
             Text(
-                // Owner: subtle. (Was 52 sp; the photo is the point, the caption is a museum label.)
-                w.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 26.sp, lineHeight = 28.sp,
+                // Owner: no bigger than the "Continue watching" label (Manrope 12 bold). Was 52, then 26 sp.
+                w.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 12.sp, lineHeight = 14.sp,
                 color = Veil.Text.copy(alpha = 0.9f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             w.author?.let {
                 Text(
                     "Photograph by $it", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.55f),
+                    fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.55f),
                 )
             }
         }
