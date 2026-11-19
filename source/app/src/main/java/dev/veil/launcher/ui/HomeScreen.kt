@@ -251,7 +251,7 @@ private fun Hero(hero: WatchItem?, state: LauncherState, modifier: Modifier) {
 
 @Composable
 private fun HeroBody(hero: WatchItem?, state: LauncherState) {
-    Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (hero == null) {
             Text("CONTINUE WATCHING", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
             Text(
@@ -270,10 +270,11 @@ private fun HeroBody(hero: WatchItem?, state: LauncherState) {
                 hero.upNext -> "UP NEXT"
                 else -> "CONTINUE"
             },
-            fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent,
+            fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent,
         )
-        TitleOrLogo(hero, fontSize = 48.sp, maxLogoHeight = 104.dp)
-        Text(hero.heroLine, fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Owner: the title about the size of the "Continue watching" label (serif 15 ≈ Manrope 12); logos to match.
+        TitleOrLogo(hero, fontSize = 15.sp, maxLogoHeight = 30.dp)
+        Text(hero.heroLine, fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         // "done by": when you'd finish if you started now (refreshes every minute).
         val doneBy = hero.minutesLeft?.let { doneByText(it, state.minuteTick) }
         if (hero.progress > 0f) {
@@ -356,16 +357,17 @@ private fun ContinueRow(state: LauncherState, firstFocus: FocusRequester, focusK
 private fun WatchPill(item: WatchItem, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier) {
     Pill(
         onClick = onClick, onLongClick = onLongClick, modifier = modifier,
-        padding = PaddingValues(start = 6.dp, end = 17.dp, top = 6.dp, bottom = 6.dp), soundPitch = 0.9f,
+        // Ravine: compact cards (owner: minimalist). Was a 74×42 thumbnail and up to 220 dp of text.
+        padding = PaddingValues(start = 5.dp, end = 14.dp, top = 5.dp, bottom = 5.dp), soundPitch = 0.9f,
     ) {
-        Box(Modifier.size(74.dp, 42.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.1f))) {
+        Box(Modifier.size(56.dp, 32.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.1f))) {
             item.thumb?.let {
                 AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
             if (item.isNew) {
                 Text(
                     "NEW", fontSize = 7.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp, color = Veil.Ink,
-                    modifier = Modifier.align(Alignment.TopStart).padding(start = 9.dp, top = 5.dp)
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 7.dp, top = 3.dp)
                         .clip(RoundedCornerShape(50)).background(Veil.Accent).padding(horizontal = 5.dp, vertical = 1.dp),
                 )
             }
@@ -377,15 +379,15 @@ private fun WatchPill(item: WatchItem, onClick: () -> Unit, onLongClick: () -> U
                 )
                 ProgressLine(
                     item.progress, color = Veil.Accent, track = Color.White.copy(alpha = 0.35f),
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 13.dp, end = 13.dp, bottom = 5.dp).fillMaxWidth(),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 10.dp, end = 10.dp, bottom = 4.dp).fillMaxWidth(),
                 )
             }
         }
-        Column(Modifier.widthIn(max = 220.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(item.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(item.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 if (item.isMovie && item.progress > 0f) item.remainingLine else item.episodeLine,
-                fontSize = 9.5.sp, color = dimColor(), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                fontSize = 9.sp, color = dimColor(), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -447,7 +449,7 @@ internal fun TitleOrLogo(item: WatchItem, fontSize: androidx.compose.ui.unit.Tex
             AsyncImage(
                 model = url, contentDescription = item.title, contentScale = ContentScale.Fit,
                 alignment = Alignment.BottomStart,
-                modifier = Modifier.padding(top = 4.dp, bottom = 6.dp).sizeIn(maxWidth = 440.dp, maxHeight = maxLogoHeight),
+                modifier = Modifier.padding(top = 2.dp, bottom = 2.dp).sizeIn(maxWidth = 440.dp, maxHeight = maxLogoHeight),
             )
         } else {
             // Ravine: titles without a logo use the serif display face, like the wallpaper captions.
