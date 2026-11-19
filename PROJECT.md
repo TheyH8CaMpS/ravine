@@ -85,7 +85,7 @@ They're out of scope.
 | D39 | Compact Continue Watching cards (56×32 thumbnail, text ≤140 dp, 11/9 sp) and a small hero: show title in serif 15 sp (≈ the "Continue watching" label), logos ≤30 dp, 8 sp eyebrow, 10 sp line | Owner: cards far too wide, title far too big; prefers minimal |
 | D40 | Kotlin 2.0.21 with the Compose compiler plugin (was 1.9.24 + composeOptions). Ravine's features live in `state/`: `WallpaperState` (`state.walls`), `GameDayState` (`state.gameDay`), `ShowsState` (`state.shows`), `UpdateState` (`state.updates`); `LauncherState` 980 → 765 lines. Verified: 27 unit tests, and every preview pixel-identical before/after (the Ambient shot differs only by its random photo) | Maintainability; no visible change |
 | D41 | Team photos: 15 owner-approved Wikimedia Commons photos added to the feed (Dodgers 5, Lakers 6, Raiders 4; now 35 total). Rules: public domain / CC0 / CC BY / CC BY-SA only, landscape, ≥2400 px wide; Commons thumbnail links (3840 px if the original is that big, else 1920), never originals (rate-limited); caption credit "Photographer · license" plus a credits table with source links in the wallpaper repo's README. The owner reviews a numbered contact sheet before anything is added | Game nights looped one Lakers photo |
-| D42 | "Install updates: Automatic" (default) / "Ask" in menu IV: a new build is checked every 2 h, downloaded in the background, and Android's install screen opens on the next return to Home (once per build; never jumps to Settings on its own). The menu footer shows the installed build | Owner wanted updates to load automatically. Android always needs one Install press for a sideloaded app; only system apps install silently |
+| D42 | "Install updates: Automatic" (default) / "Ask" in menu IV: a new build is checked every 2 h, downloaded in the background, and Android's install screen opens on the next return to Home (once per build; never jumps to Settings on its own). The menu footer shows the installed build | Owner wanted updates to load automatically. Android always needs one Install press for a sideloaded app; only system apps install silently. Verified on the Shield 2026-11-19: 26 → 27 by restart, Home, Install |
 | D43 | "Check for updates" in menu IV checks immediately (ignores the 2-hour timer): "Up to date", or straight to download + install screen; a failed check says so instead of claiming up to date | Owner wanted a manual check while Ravine changes often |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
@@ -157,7 +157,7 @@ reads from one of those, or from what it sees locally:
 
 - CI: `.github/workflows/build.yml`. Secrets: `TMDB_KEY` (required for artwork), `SIMKL_CLIENT_ID`,
   `RAVINE_KEYSTORE_BASE64`, `RAVINE_KEYSTORE_PASSWORD`. Variable: `WEATHER_CITY`.
-- Newest release on the Shield: Downloader app, code **2583510** (aftv.news/2583510 → the link below). Releases are
+- Updates: automatic from the menu (D42/D43). Fallback: Downloader app, code **2583510** (aftv.news/2583510 → the link below). Releases are
   published by commits containing `[release]`.
 - Release link:
   `https://github.com/TheyH8CaMpS/ravine/releases/latest/download/ravine.apk`
