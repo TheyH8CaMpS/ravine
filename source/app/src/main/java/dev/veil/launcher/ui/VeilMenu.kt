@@ -87,7 +87,8 @@ fun VeilMenuAnchor(state: LauncherState) {
     Box(Modifier.onFocusChanged { focused = it.hasFocus; state.wordmarkFocused = it.hasFocus }) {
         // Styled like the other top-bar pills (soft fill + outline + chevron) so it reads as a button.
         Surface(
-            onClick = { /* the menu opens on focus; OK does nothing extra */ },
+            // OK opens/closes the menu (D45); it also opens on focus, and Back closes it.
+            onClick = { if (state.veilMenuOpen) { Sfx.back(); state.veilMenuOpen = false } else { Sfx.open(); state.veilMenuOpen = true } },
             // Back closes the menu from the "veil" button too (not only from inside the menu), by sending
             // focus back to the page, exactly like the panel's own Back handling.
             modifier = Modifier.focusSound(1.12f).onPreviewKeyEvent { e ->
@@ -177,7 +178,7 @@ private fun VeilPanel(state: LauncherState) {
             }
             .width(400.dp).heightIn(max = 470.dp).clip(shape).background(Veil.Sheet).border(1.dp, Veil.Line, shape),
     ) {
-        GrainLayer(state.walls.filmGrain, Modifier.matchParentSize())
+        GrainLayer(state.walls.grainLevel, Modifier.matchParentSize())
         Column(
             Modifier.verticalScroll(scroll).padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -208,7 +209,7 @@ private fun VeilPanel(state: LauncherState) {
             IndexRow("Next photo", w?.title?.takeIf(String::isNotBlank) ?: "…", serifValue = true, onClick = state.walls::next)
             IndexRow("Change photo every", "${state.walls.rotateMinutes} min", onClick = state.walls::cycleRotateMinutes)
             IndexRow("Picture depth", PictureDepth.name(state.walls.pictureDepth), onClick = state.walls::cyclePictureDepth)
-            IndexRow("Film grain", if (state.walls.filmGrain) "On" else "Off", onClick = state.walls::toggleFilmGrain)
+            IndexRow("Film grain", FilmGrain.name(state.walls.grainLevel), onClick = state.walls::cycleGrain)
 
             Section("II", "Ambient")
             IndexRow("Start Ambient now", arrow = true, onClick = state::startAmbient)

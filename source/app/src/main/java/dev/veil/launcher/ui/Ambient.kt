@@ -447,7 +447,7 @@ private fun WallpaperSlides(walls: List<dev.veil.launcher.data.Wallpaper>) {
         val veil = PictureDepth.extraShade(depth)
         if (veil > 0f) Box(Modifier.fillMaxSize().background(Veil.Bg.copy(alpha = veil)))
         SlideshowShade(Veil.Bg)
-        GrainLayer(context.getSharedPreferences("veil", android.content.Context.MODE_PRIVATE).getBoolean("film_grain", true))
+        GrainLayer(FilmGrain.saved(context))
         AnimatedContent(
             targetState = w,
             transitionSpec = { fadeIn(tween(1800, delayMillis = 600)) togetherWith fadeOut(tween(800)) },

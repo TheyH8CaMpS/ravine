@@ -21,7 +21,23 @@ import kotlin.random.Random
  */
 object FilmGrain {
     private const val TILE = 256
-    private const val STRENGTH = 0.085f // max alpha of a speck
+    private const val STRENGTH = 0.085f // max alpha of a speck at "Classic" (the tile is baked once at this level)
+
+    /** Grain levels (PROJECT.md D44): Off, Fine, Light (default), Classic (the original strength). */
+    const val OFF = 0
+    const val FINE = 1
+    const val LIGHT = 2
+    const val CLASSIC = 3
+    fun name(level: Int) = when (level) { OFF -> "Off"; FINE -> "Fine"; CLASSIC -> "Classic"; else -> "Light" }
+    /** Layer alpha for a level: the baked tile drawn more or less transparently. */
+    fun alpha(level: Int) = when (level) { OFF -> 0f; FINE -> 0.35f; CLASSIC -> 1f; else -> 0.6f }
+
+    /** Saved level; the old on/off switch maps to Classic/Off. */
+    fun saved(context: android.content.Context): Int {
+        val p = context.getSharedPreferences("veil", android.content.Context.MODE_PRIVATE)
+        return if (p.contains("grain_level")) p.getInt("grain_level", LIGHT)
+        else if (!p.getBoolean("film_grain", true)) OFF else LIGHT
+    }
 
     val tile: ImageBitmap by lazy {
         val rnd = Random(1971)
@@ -37,8 +53,9 @@ object FilmGrain {
 }
 
 @Composable
-fun GrainLayer(enabled: Boolean, modifier: Modifier = Modifier) {
-    if (!enabled) return
+fun GrainLayer(level: Int, modifier: Modifier = Modifier) {
+    val a = FilmGrain.alpha(level)
+    if (a <= 0f) return
     val brush = ShaderBrush(ImageShader(FilmGrain.tile, TileMode.Repeated, TileMode.Repeated))
-    Box(modifier.fillMaxSize().drawBehind { drawRect(brush) })
+    Box(modifier.fillMaxSize().drawBehind { drawRect(brush, alpha = a) })
 }

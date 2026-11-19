@@ -96,11 +96,12 @@ class WallpaperState(
         prefs.edit().putInt("picture_depth", pictureDepth).apply()
     }
 
-    var filmGrain by mutableStateOf(prefs.getBoolean("film_grain", true))
+    /** Film grain level (FilmGrain.OFF…CLASSIC); Light by default (D44). */
+    var grainLevel by mutableStateOf(dev.veil.launcher.ui.FilmGrain.saved(context))
         private set
 
-    fun toggleFilmGrain() {
-        filmGrain = !filmGrain
-        prefs.edit().putBoolean("film_grain", filmGrain).apply()
+    fun cycleGrain() {
+        grainLevel = (grainLevel + 1) % 4
+        prefs.edit().putInt("grain_level", grainLevel).apply()
     }
 }

@@ -154,7 +154,7 @@ fun HomeScreen(state: LauncherState) {
         val veil = PictureDepth.extraShade(state.walls.pictureDepth)
         if (veil > 0f) Box(Modifier.fillMaxSize().background(ThemeState.current.bg.copy(alpha = veil)))
         HomeShade(bg = ThemeState.current.bg, glow = ArtTint.target)
-        GrainLayer(state.walls.filmGrain)
+        GrainLayer(state.walls.grainLevel)
 
         Column(Modifier.fillMaxSize().padding(top = 26.dp, bottom = 22.dp)) {
             TopBar(state, modifier = Modifier.zIndex(1f).recede(frostTop).padding(horizontal = EDGE))
