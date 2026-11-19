@@ -149,6 +149,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     )
     val shows = dev.veil.launcher.state.ShowsState(context, scope, prefs) { publishItems(baseItems) }
     val updates = dev.veil.launcher.state.UpdateState(context, scope) { showToast(it) }
+    val remote = dev.veil.launcher.state.RemoteState(context, scope)
 
     /** Ravine: whether the ad-blocking (Private DNS) pill shows in the top bar. Off by default. */
     var showPrivacy by mutableStateOf(prefs.getBoolean("show_privacy", false))

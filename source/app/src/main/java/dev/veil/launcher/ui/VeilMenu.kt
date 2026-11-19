@@ -247,6 +247,9 @@ private fun VeilPanel(state: LauncherState) {
                 onClick = state.updates::checkNow,
             )
             IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)
+            IndexRow("Netflix button", state.remote.label, onClick = state.remote::cycle)
+            if (state.remote.learning) Note("Press the Netflix button on the remote once so Ravine can learn it.")
+            else if (state.remote.missed) Note("Ravine didn't see the Netflix button. The Ravine Home-button service must be on (Accessibility).")
             IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
             IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)

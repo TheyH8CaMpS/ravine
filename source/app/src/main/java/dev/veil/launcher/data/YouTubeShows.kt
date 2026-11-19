@@ -21,7 +21,7 @@ object YouTubeShows {
         exclude = Regex("""best of""", RegexOption.IGNORE_CASE),
     )
 
-    private val SMARTTUBE = listOf(
+    internal val SMARTTUBE = listOf(
         "com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "org.smarttube.stable", "org.smarttube.beta",
     )
 
