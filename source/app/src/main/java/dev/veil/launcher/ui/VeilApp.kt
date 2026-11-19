@@ -77,6 +77,12 @@ fun VeilApp(state: LauncherState) {
     }
     if (state.weatherPicker) WeatherPicker(state)
     if (state.vizSettingsOpen) VizSettingsDialog(state)
+    // Courtside scores (D49): a sheet from the right, over Home.
+    AnimatedVisibility(
+        visible = state.scores.open,
+        enter = fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(320)) { it / 3 },
+        exit = fadeOut(tween(160)),
+    ) { ScoresPanel(state) }
 
     // Veil Ambient sits above everything; any button press (handled in MainActivity) dismisses it.
     AnimatedVisibility(visible = state.ambient, enter = fadeIn(tween(900)), exit = fadeOut(tween(350))) {

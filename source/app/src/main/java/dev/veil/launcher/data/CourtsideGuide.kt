@@ -58,16 +58,22 @@ object CourtsideGuide {
     }
 
     private fun fetch(context: Context, game: Game): String? {
-        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val url = p.getString("url", null) ?: return null
         val zone = "America/Los_Angeles"
         val day = java.time.Instant.ofEpochMilli(game.startMs).atZone(java.time.ZoneId.of(zone)).toLocalDate()
+        val text = get(context, "/api/tv/games?date=$day&zone=$zone&teams=${game.team.key}") ?: return null
+        return bestChannel(JSONObject(text), game.id)
+    }
+
+    /** GET a Courtside TV route ([path] starts with "/api/tv/"): the body on 200, else null. Network: off the main thread. */
+    fun get(context: Context, path: String): String? {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val url = p.getString("url", null) ?: return null
         val headers = buildMap {
             put("Authorization", "Bearer " + p.getString("tv", ""))
             p.getString("bypass", null)?.takeIf { it.isNotBlank() }?.let { put("OAI-Sites-Authorization", "Bearer $it") }
         }
-        val (code, text) = Http.call("GET", "$url/api/tv/games?date=$day&zone=$zone&teams=${game.team.key}", headers)
-        return if (code == 200) bestChannel(JSONObject(text), game.id) else null
+        val (code, text) = Http.call("GET", url + path, headers)
+        return if (code == 200) text else null
     }
 
     /** The top channel for ESPN event [eventId] as "512 · Spectrum SportsNet LA". Pure, unit-tested. */

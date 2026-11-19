@@ -287,6 +287,8 @@ fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
             }
             // Ravine game day: today's game, its live score, or the final (PROJECT.md D27).
             state.gameDay.game?.let { GameStrip(it, state.minuteTick, onClick = state.gameDay::openGame) }
+            // Courtside's scores and stats (D49), once Courtside is set up on this TV.
+            if (state.scores.available) ScoresButton(state)
             // Ravine: the ad-blocking pill is off unless turned on in the menu (PROJECT.md D4).
             if (state.showPrivacy) PrivacyPill(state, Modifier.onFocusChanged { privacyFocused = it.isFocused })
             Surface(

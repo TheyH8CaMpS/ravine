@@ -150,6 +150,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     val shows = dev.veil.launcher.state.ShowsState(context, scope, prefs) { publishItems(baseItems) }
     val updates = dev.veil.launcher.state.UpdateState(context, scope) { showToast(it) }
     val remote = dev.veil.launcher.state.RemoteState(context, scope)
+    val scores = dev.veil.launcher.state.ScoresState(context, scope)
 
     /** Ravine: whether the ad-blocking (Private DNS) pill shows in the top bar. Off by default. */
     var showPrivacy by mutableStateOf(prefs.getBoolean("show_privacy", false))
@@ -274,6 +275,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         sheet = null
         privacySheet = false
         musicSheet = false
+        scores.close()
         resetIdle()
         screen = Screen.HOME
         homeTick++
@@ -387,6 +389,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         shows.tick(now)
         updates.tick(now)
         walls.tick(now)
+        scores.tick(now)
         // A pause that ended while the alarm was delayed: resume now.
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()
         if (weatherSource.enabled && now - lastWeather > 30 * 60_000) {
@@ -605,7 +608,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
      */
     fun checkIdle() {
         if (ambient || screen != Screen.HOME || sheet != null || privacySheet || musicSheet || weatherPicker ||
-            vizSettingsOpen || watchSheet != null
+            vizSettingsOpen || watchSheet != null || scores.open
         ) return
         val idle = System.currentTimeMillis() - lastInput
         val playing = nowPlaying.track?.playing == true

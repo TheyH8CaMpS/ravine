@@ -68,6 +68,17 @@ class PreviewShots {
                 add(object : Interceptor {
                     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
                         val data = chain.request.data.toString()
+                        if ("/logo/" in data) {
+                            // Stand-in team logo: a disc in the team's colour with its abbreviation.
+                            val (abbr, hex) = data.substringAfterLast('/').substringBefore('.').split('-')
+                            val b = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+                            val c = android.graphics.Canvas(b)
+                            val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                            p.color = android.graphics.Color.parseColor("#$hex"); c.drawCircle(32f, 32f, 30f, p)
+                            p.color = android.graphics.Color.WHITE; p.textSize = 22f; p.textAlign = android.graphics.Paint.Align.CENTER
+                            p.isFakeBoldText = true; c.drawText(abbr, 32f, 40f, p)
+                            return SuccessResult(BitmapDrawable(context.resources, b), chain.request, DataSource.MEMORY)
+                        }
                         val bmp = when { "lakers" in data -> lakers; "la.jpg" in data -> la; else -> wall }
                         return SuccessResult(BitmapDrawable(context.resources, bmp), chain.request, DataSource.MEMORY)
                     }
@@ -191,6 +202,69 @@ class PreviewShots {
     @Test fun gameTonightCourtside() {
         gameDay(dev.veil.launcher.data.Game.State.PRE, channel = "512 · Spectrum SportsNet LA")
         shoot("game-tonight-courtside", newState())
+    }
+
+    // ---- Courtside scores (D49): sample data in Courtside's TV format ----
+
+    private fun team(id: String, abbr: String, name: String, color: String, score: String, result: String? = null) =
+        """{"id":"$id","abbr":"$abbr","name":"$name","logo":"https://preview/logo/$abbr-${color.removePrefix("#")}.png","color":"$color","score":"$score","record":"6-4"${result?.let { ",\"result\":\"$it\"" } ?: ""}}"""
+
+    private val scoresJson = """{"games":[
+      {"id":"NFL-1","eventId":"1","feed":"NFL","league":"NFL","date":"2026-11-22T21:25Z","state":"in","status":"4:12 - 3rd","favorite":true,"pick":"Close game · Division rivals","situation":"DEN ball, 2nd & 6 at LV 34",
+       "channel":{"name":"US: CBS Los Angeles HD","number":"2"},"teams":[${team("13", "LV", "Raiders", "#a5acaf", "17")},${team("7", "DEN", "Broncos", "#fb4f14", "20")}]},
+      {"id":"NFL-2","eventId":"2","feed":"NFL","league":"NFL","date":"2026-11-22T21:25Z","state":"in","status":"9:40 - 3rd","favorite":false,
+       "channel":{"name":"US: FOX 11 Los Angeles","number":"11"},"teams":[${team("12", "KC", "Chiefs", "#e31837", "24")},${team("24", "LAC", "Chargers", "#0080c6", "10")}]},
+      {"id":"NBA-3","eventId":"3","feed":"NBA","league":"NBA","date":"2026-11-23T02:30Z","state":"pre","status":"6:30 PM PST","favorite":true,"pick":"Two top-five records",
+       "channel":{"name":"US: Spectrum SportsNet LA FHD","number":"512"},"teams":[${team("13", "LAL", "Lakers", "#fdb927", "")},${team("2", "BOS", "Celtics", "#007a33", "")}]},
+      {"id":"NFL-4","eventId":"4","feed":"NFL","league":"NFL","date":"2026-11-23T01:20Z","state":"pre","status":"5:20 PM PST","favorite":false,
+       "channel":{"name":"US: NBC 4 Los Angeles","number":"4"},"teams":[${team("17", "NE", "Patriots", "#c60c30", "")},${team("25", "SF", "49ers", "#b3995d", "")}]},
+      {"id":"NFL-5","eventId":"5","feed":"NFL","league":"NFL","date":"2026-11-22T18:00Z","state":"post","status":"Final","favorite":false,
+       "teams":[${team("3", "CHI", "Bears", "#c83803", "27", "win")},${team("9", "GB", "Packers", "#ffb612", "23", "loss")}]}
+    ]}"""
+
+    private val gameJson = """{"teamIds":["13","7"],"headline":"",
+      "compare":[{"label":"Total Yards","values":["288","311"],"bars":[93,100],"winner":"home"},
+        {"label":"Passing","values":["201","174"],"bars":[100,87],"winner":"away"},
+        {"label":"Rushing","values":["87","137"],"bars":[64,100],"winner":"home"},
+        {"label":"Turnovers","values":["1","0"],"bars":[100,0],"winner":"home"},
+        {"label":"Possession","values":["19:02","20:46"]},
+        {"label":"1st Downs","values":["16","18"],"bars":[89,100],"winner":"home"}],
+      "performers":[{"teamId":"13","label":"Passing Yards","athlete":"G. Smith","line":"17/24, 201 YDS, 1 TD"},
+        {"teamId":"13","label":"Rushing Yards","athlete":"A. Jeanty","line":"12 CAR, 61 YDS"},
+        {"teamId":"13","label":"Receiving Yards","athlete":"B. Bowers","line":"6 REC, 84 YDS, 1 TD"},
+        {"teamId":"7","label":"Passing Yards","athlete":"B. Nix","line":"15/22, 174 YDS, 2 TD"},
+        {"teamId":"7","label":"Rushing Yards","athlete":"J. Dobbins","line":"14 CAR, 79 YDS"},
+        {"teamId":"7","label":"Receiving Yards","athlete":"C. Sutton","line":"5 REC, 71 YDS, 1 TD"}],
+      "moments":[{"teamId":"7","kind":"score","period":"3","clock":"8:51","text":"Bo Nix pass to Courtland Sutton for 22 yds for a TD","score":"17–20"},
+        {"teamId":"13","kind":"score","period":"2","clock":"0:04","text":"Daniel Carlson 48 yd field goal","score":"17–13"},
+        {"teamId":"7","kind":"turnover","period":"2","clock":"6:10","text":"Geno Smith pass intercepted by Pat Surtain II","score":null},
+        {"teamId":"7","kind":"score","period":"2","clock":"9:22","text":"J.K. Dobbins 3 yd run for a TD","score":"14–13"},
+        {"teamId":"13","kind":"score","period":"1","clock":"3:30","text":"Geno Smith pass to Brock Bowers for 9 yds for a TD","score":"14–6"}]}"""
+
+    private val standingsJson = """{"league":"NFL","standings":{"season":"2026","groups":[
+      {"name":"AFC West","rows":[{"abbr":"DEN","name":"Broncos","record":"8-2","gamesBack":"-","streak":"W3"},{"abbr":"KC","name":"Chiefs","record":"7-3","gamesBack":"1","streak":"W1"},
+        {"abbr":"LAC","name":"Chargers","record":"6-4","gamesBack":"2","streak":"L1"},{"abbr":"LV","name":"Raiders","record":"4-6","gamesBack":"4","streak":"L2"}]},
+      {"name":"AFC East","rows":[{"abbr":"NE","name":"Patriots","record":"8-3","gamesBack":"-","streak":"W5"},{"abbr":"BUF","name":"Bills","record":"7-3","gamesBack":"0.5","streak":"W2"}]}]}}"""
+
+    private fun scoresState(): LauncherState = newState().also { s ->
+        s.scores.forceAvailable = true
+        s.scores.fetcher = { path ->
+            when {
+                path.startsWith("/api/tv/scores") -> scoresJson
+                path.startsWith("/api/tv/game") -> gameJson
+                path.startsWith("/api/tv/standings") -> standingsJson
+                else -> null
+            }
+        }
+    }
+
+    @Test fun scoresButton() = shoot("scores-button", scoresState())
+    @Test fun scoresList() = shoot("scores-list", scoresState()) { it.scores.show() }
+    @Test fun scoresNfl() = shoot("scores-nfl", scoresState()) { it.scores.show(); it.scores.selectTab("NFL") }
+    @Test fun scoresStandings() = shoot("scores-standings", scoresState()) { it.scores.show(); it.scores.selectTab("Standings") }
+    @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
+        s.scores.show()
+        s.scores.openGame(dev.veil.launcher.data.CourtsideScores.parseScores(scoresJson).first())
     }
 
     @Test fun gameTonight() { gameDay(dev.veil.launcher.data.Game.State.PRE); shoot("game-tonight", newState()) }

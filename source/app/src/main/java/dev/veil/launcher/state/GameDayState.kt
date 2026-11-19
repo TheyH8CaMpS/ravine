@@ -90,6 +90,11 @@ class GameDayState(
     /** OK on the strip: always the "Watch games in" app, never Courtside (D29). */
     fun openGame() {
         if (game == null) return
+        openWatchApp()
+    }
+
+    /** The "Watch games in" app (the Scores panel's Watch button too). */
+    fun openWatchApp() {
         val pm = context.packageManager
         (pm.getLeanbackLaunchIntentForPackage(watchWith) ?: pm.getLaunchIntentForPackage(watchWith))
             ?.let { start(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
