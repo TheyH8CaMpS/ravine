@@ -1,0 +1,6 @@
+# Ravine startup profile (PROJECT.md D46). Sideloaded apps run unoptimized until Android compiles them in
+# the background (often a day, and again after every update). With this profile (installed by
+# androidx.profileinstaller), Android pre-compiles Ravine's own code from the first start.
+# Compose, Coil and the other AndroidX libraries ship their own profiles, which the build merges in.
+HSPLdev/veil/launcher/**->**(**)**
+Ldev/veil/launcher/**;

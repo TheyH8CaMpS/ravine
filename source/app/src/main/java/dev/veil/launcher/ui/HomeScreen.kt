@@ -151,9 +151,7 @@ fun HomeScreen(state: LauncherState) {
         // too slow for live full-screen gradients while the backdrop drifts).
         // Picture depth (Ravine): an extra even darkening under the text shading, for TVs that lift dark tones
         // while the interface is shown in HDR / Dolby Vision mode.
-        val veil = PictureDepth.extraShade(state.walls.pictureDepth)
-        if (veil > 0f) Box(Modifier.fillMaxSize().background(ThemeState.current.bg.copy(alpha = veil)))
-        HomeShade(bg = ThemeState.current.bg, glow = ArtTint.target)
+        HomeShade(bg = ThemeState.current.bg, glow = ArtTint.target, veil = PictureDepth.extraShade(state.walls.pictureDepth))
         GrainLayer(state.walls.grainLevel)
 
         Column(Modifier.fillMaxSize().padding(top = 26.dp, bottom = 22.dp)) {

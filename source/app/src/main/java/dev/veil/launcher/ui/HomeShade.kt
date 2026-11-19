@@ -43,7 +43,13 @@ import kotlin.random.Random
  * The random dithering added while baking also removes colour banding, for free.
  */
 @Composable
-fun HomeShade(bg: Color, glow: Color?, modifier: Modifier = Modifier) {
+fun HomeShade(
+    bg: Color,
+    glow: Color?,
+    modifier: Modifier = Modifier,
+    /** Ravine Picture depth: an even darkening baked into the same image (one full-screen layer, not two; D46). */
+    veil: Float = 0f,
+) {
     var size by remember { mutableStateOf(IntSize.Zero) }
     var cur by remember { mutableStateOf<ImageBitmap?>(null) }      // fades + glow, in one image
     var base by remember { mutableStateOf<ImageBitmap?>(null) }     // fades only
@@ -51,11 +57,11 @@ fun HomeShade(bg: Color, glow: Color?, modifier: Modifier = Modifier) {
     var prevGlow by remember { mutableStateOf<ImageBitmap?>(null) }
     var blending by remember { mutableStateOf(false) }
     val mix = remember { Animatable(1f) }
-    LaunchedEffect(size, bg, glow) {
+    LaunchedEffect(size, bg, glow, veil) {
         if (size.width <= 0) return@LaunchedEffect
         val w = size.width / 2; val h = size.height / 2
         val (nextAll, nextBase, nextGlow) = withContext(Dispatchers.Default) {
-            Triple(bake(w, h, bg, glow), bake(w, h, bg, null), glow?.let { bakeGlow(w / 2, h / 2, it) })
+            Triple(bake(w, h, bg, glow, veil), bake(w, h, bg, null, veil), glow?.let { bakeGlow(w / 2, h / 2, it) })
         }
         if (nextAll === cur) return@LaunchedEffect
         val first = cur == null
@@ -137,8 +143,8 @@ private fun bakeGlow(w: Int, h: Int, glow: Color): ImageBitmap {
     return img
 }
 
-private fun bake(w: Int, h: Int, bg: Color, glow: Color?): ImageBitmap {
-    val key = "$w x $h ${bg.value} ${glow?.value}"
+private fun bake(w: Int, h: Int, bg: Color, glow: Color?, veil: Float = 0f): ImageBitmap {
+    val key = "$w x $h ${bg.value} ${glow?.value} $veil"
     synchronized(cache) { cache[key]?.let { return it } }
     val px = IntArray(w * h)
     val rnd = Random(42)
@@ -151,7 +157,7 @@ private fun bake(w: Int, h: Int, bg: Color, glow: Color?): ImageBitmap {
         val dy = y - cy
         for (x in 0 until w) {
             // Two Bg-coloured fades stacked (source-over): alpha = 1 - (1-a)(1-b)
-            val a = 1f - (1f - hx[x]) * (1f - va)
+            val a = 1f - (1f - hx[x]) * (1f - va) * (1f - veil)
             var outA = a
             var r = br * a; var g = bgG * a; var b = bb * a // premultiplied
             if (glow != null) {
