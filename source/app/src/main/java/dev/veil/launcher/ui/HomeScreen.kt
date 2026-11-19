@@ -84,7 +84,7 @@ fun HomeScreen(state: LauncherState) {
     val hero = state.focused ?: state.items.firstOrNull()
     // Ravine: the wallpaper is Home's picture. A show's artwork takes over only while a Continue Watching
     // card has focus (PROJECT.md §2); without a wallpaper yet, fall back to the show as Veil did.
-    val wallpaper = state.wallpaper
+    val wallpaper = state.walls.current
     val showArt = hero != null && (state.focusArea == "cw" || wallpaper == null)
     val backdropUrl = if (showArt) hero?.backdrop else wallpaper?.url
     val firstFocus = remember { FocusRequester() }
@@ -135,8 +135,8 @@ fun HomeScreen(state: LauncherState) {
         // The drift also holds still while Veil Ambient covers Home (nobody can see it, and it cost frames).
         // (Lite mode: no drift at all; on slow TVs redrawing the full-screen artwork costs frames.)
         Backdrop(
-            backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE, depth = state.pictureDepth,
-            onResult = { url, ok -> if (url == wallpaper?.url) state.onWallpaperResult(ok) },
+            backdropUrl, paused = frosted || state.ambient || dev.veil.launcher.BuildConfig.LITE_MODE, depth = state.walls.pictureDepth,
+            onResult = { url, ok -> if (url == wallpaper?.url) state.walls.onResult(ok) },
         )
         // Frost: the pre-blurred artwork fades in over the real one (cheap; a live blur is too slow here).
         val fi = frostImg
@@ -151,10 +151,10 @@ fun HomeScreen(state: LauncherState) {
         // too slow for live full-screen gradients while the backdrop drifts).
         // Picture depth (Ravine): an extra even darkening under the text shading, for TVs that lift dark tones
         // while the interface is shown in HDR / Dolby Vision mode.
-        val veil = PictureDepth.extraShade(state.pictureDepth)
+        val veil = PictureDepth.extraShade(state.walls.pictureDepth)
         if (veil > 0f) Box(Modifier.fillMaxSize().background(ThemeState.current.bg.copy(alpha = veil)))
         HomeShade(bg = ThemeState.current.bg, glow = ArtTint.target)
-        GrainLayer(state.filmGrain)
+        GrainLayer(state.walls.filmGrain)
 
         Column(Modifier.fillMaxSize().padding(top = 26.dp, bottom = 22.dp)) {
             TopBar(state, modifier = Modifier.zIndex(1f).recede(frostTop).padding(horizontal = EDGE))

@@ -83,6 +83,7 @@ They're out of scope.
 | D37 | Previews are fully offline (`Http.offline`, fake GameSource): they never reach ESPN, YouTube, GitHub, TMDB or weather | A preview picked up the live game and the real Yak feed |
 | D38 | No "Back to live TV" card. TiviMate publishes no media session (`dumpsys media_session` on the Shield, 2026-11-19, listed only Spotify and Netflix), so Ravine can't know the channel or reopen it. Instead the owner turns on TiviMate's own "start with last channel" option, so the dock's TiviMate icon returns to the last channel | A card without a channel would duplicate the dock icon |
 | D39 | Compact Continue Watching cards (56×32 thumbnail, text ≤140 dp, 11/9 sp) and a small hero: show title in serif 15 sp (≈ the "Continue watching" label), logos ≤30 dp, 8 sp eyebrow, 10 sp line | Owner: cards far too wide, title far too big; prefers minimal |
+| D40 | Kotlin 2.0.21 with the Compose compiler plugin (was 1.9.24 + composeOptions). Ravine's features live in `state/`: `WallpaperState` (`state.walls`), `GameDayState` (`state.gameDay`), `ShowsState` (`state.shows`), `UpdateState` (`state.updates`); `LauncherState` 980 → 765 lines. Verified: 27 unit tests, and every preview pixel-identical before/after (the Ambient shot differs only by its random photo) | Maintainability; no visible change |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

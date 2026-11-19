@@ -134,78 +134,21 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     var seasonal by mutableStateOf(prefs.getBoolean("seasonal", true))
         private set
 
-    // ---- Wallpapers (Ravine) ---------------------------------------------------------------------
+    // ---- Ravine features (state/ package) -------------------------------------------------------
 
-    val wallpapers = Wallpapers(context)
-    /** The photo behind Home while no Continue Watching card has focus. */
-    var wallpaper by mutableStateOf(wallpapers.at(wallpapers.step))
-        private set
-
-    /** Ravine game day: the team's collection while its game is on (if team wallpapers are on). */
-    private fun preferredCollection(now: Long = System.currentTimeMillis()): String? =
-        game?.takeIf { teamWallpapers && it.inWindow(now) }?.team?.collection
-    private var appliedPreference: String? = null
-    private fun wallpaperAt(step: Int) = wallpapers.at(step, prefer = preferredCollection())
     /** Which part of Home has focus: "cw" (Continue Watching), "app", "all-apps"… Drives the backdrop. */
     var focusArea by mutableStateOf("")
-    private var lastWallpaperFeed = 0L
-    private var lastRotate = System.currentTimeMillis()
 
-    /** Next photo now (also used by the menu's "Next wallpaper"), and warm the cache for the one after. */
-    fun nextWallpaper() {
-        wallpapers.step = wallpapers.step + 1
-        wallpaper = wallpaperAt(wallpapers.step)
-        lastRotate = System.currentTimeMillis()
-        prefetchWallpaper()
-    }
-
-    private var wallpaperFailures = 0
-
-    /** A photo that won't load (moved, blocked, offline) is skipped, up to once around the whole library. */
-    fun onWallpaperResult(ok: Boolean) {
-        if (ok) { wallpaperFailures = 0; return }
-        if (++wallpaperFailures >= wallpapers.all.size.coerceAtLeast(1)) return // offline: stop trying
-        nextWallpaper()
-    }
-
-    private fun prefetchWallpaper() {
-        val next = wallpaperAt(wallpapers.step + 1) ?: return
-        runCatching {
-            coil.Coil.imageLoader(context).enqueue(
-                coil.request.ImageRequest.Builder(context).data(next.url).size(1920, 1080).build(),
-            )
-        }
-    }
-
-    /** Feed every 6 h; rotation on the configured interval, only while Home is what's on screen. */
-    private fun tickWallpapers(now: Long) {
-        if (now - lastWallpaperFeed > 6 * 60 * 60_000L) {
-            lastWallpaperFeed = now
-            scope.launch {
-                val ok = withContext(Dispatchers.IO) { wallpapers.refresh() }
-                if (ok && wallpaper == null) { wallpaper = wallpaperAt(wallpapers.step); prefetchWallpaper() }
-            }
-        }
-        // Game day starting or ending: switch to (or away from) the team's photos right away.
-        val prefer = preferredCollection(now)
-        if (prefer != appliedPreference) {
-            appliedPreference = prefer
-            wallpaper = wallpaperAt(wallpapers.step)
-            lastRotate = now
-            prefetchWallpaper()
-        }
-        val idleOnHome = screen == Screen.HOME && !ambient && focusArea != "cw"
-        if (idleOnHome && now - lastRotate >= wallpapers.rotateMinutes * 60_000L) nextWallpaper()
-    }
-
-    /** Ravine: how deep Home's picture is drawn (see PictureDepth). Deep suits a UI shown in HDR mode. */
-    var pictureDepth by mutableStateOf(prefs.getInt("picture_depth", dev.veil.launcher.ui.PictureDepth.DEEP))
-        private set
-
-    fun cyclePictureDepth() {
-        pictureDepth = (pictureDepth + 1) % 3
-        prefs.edit().putInt("picture_depth", pictureDepth).apply()
-    }
+    val gameDay = dev.veil.launcher.state.GameDayState(
+        context, scope, prefs, apps = { apps }, pinnedApps = { pinnedApps }, start = { start(it) },
+    )
+    val walls = dev.veil.launcher.state.WallpaperState(
+        context, scope, prefs,
+        preferred = { now -> gameDay.preferredCollection(now) },
+        idleOnHome = { screen == Screen.HOME && !ambient && focusArea != "cw" },
+    )
+    val shows = dev.veil.launcher.state.ShowsState(context, scope, prefs) { publishItems(baseItems) }
+    val updates = dev.veil.launcher.state.UpdateState(context, scope) { showToast(it) }
 
     /** Ravine: whether the ad-blocking (Private DNS) pill shows in the top bar. Off by default. */
     var showPrivacy by mutableStateOf(prefs.getBoolean("show_privacy", false))
@@ -256,153 +199,15 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     /** Nuvio/Trakt items, before the daily show card is put in front. */
     private var baseItems: List<WatchItem> = emptyList()
 
-    /** Today's episode of a followed YouTube show (The Yak), if it's up and not dismissed. */
-    private var showEpisode: dev.veil.launcher.data.YouTubeShows.Episode? = null
-    private var lastShowCheck = 0L
-
-    var followYak by mutableStateOf(prefs.getBoolean("follow_yak", true))
-        private set
-
-    fun toggleFollowYak() {
-        followYak = !followYak
-        prefs.edit().putBoolean("follow_yak", followYak).apply()
-        lastShowCheck = 0L
-        if (!followYak) { showEpisode = null; publishItems(baseItems) } else tickShows(System.currentTimeMillis())
-    }
-
     /** The row = the daily show (newest, first) + Nuvio/Trakt items; keeps focus on the same card if it's still there. */
     private fun publishItems(base: List<WatchItem>) {
         baseItems = base
-        val show = showEpisode?.let { e ->
-            dev.veil.launcher.data.YouTubeShows.toItem(e, isNew = !dev.veil.launcher.data.YouTubeShows.opened(context, e.videoId))
-        }
-        val merged = listOfNotNull(show) + base
+        val merged = listOfNotNull(shows.card()) + base
         items = merged
         VeilCache.items = merged
         val keep = merged.firstOrNull { it.key == focused?.key }
         focused = keep ?: merged.firstOrNull()
         focusedIndex = if (keep != null) merged.indexOf(keep) else 0
-    }
-
-    /** Checks the show's feed every 20 minutes while Home is up. */
-    private fun tickShows(now: Long) {
-        if (!followYak || now - lastShowCheck < 20 * 60_000L) return
-        lastShowCheck = now
-        scope.launch {
-            val e = withContext(Dispatchers.IO) {
-                runCatching { dev.veil.launcher.data.YouTubeShows.fetch(dev.veil.launcher.data.YouTubeShows.THE_YAK) }.getOrNull()
-            }
-            val dismissed = context.getSharedPreferences("ravine_shows", Context.MODE_PRIVATE).getString("dismissed", null)
-            val next = e?.takeIf { it.videoId != dismissed }
-            if (next?.videoId != showEpisode?.videoId) { showEpisode = next; publishItems(baseItems) }
-        }
-    }
-
-    // ---- Update notice (Ravine) ----------------------------------------------------------------
-
-    /** A newer Ravine release, if any (checked every 6 hours). */
-    var update by mutableStateOf<dev.veil.launcher.data.Updates.Release?>(null)
-        internal set // internal: preview tests set it
-    var updateStatus by mutableStateOf<String?>(null)
-        private set
-    private var lastUpdateCheck = 0L
-
-    private fun tickUpdates(now: Long) {
-        if (now - lastUpdateCheck < 6 * 60 * 60_000L) return
-        lastUpdateCheck = now
-        scope.launch {
-            update = withContext(Dispatchers.IO) {
-                runCatching { dev.veil.launcher.data.Updates.check(BuildConfig.VERSION_CODE) }.getOrNull()
-            }
-        }
-    }
-
-    /** "Update ready" in the menu: one-time install permission, then download and Android's installer. */
-    fun installUpdate() {
-        val r = update ?: return
-        if (updateStatus == "Downloading…") return
-        if (!dev.veil.launcher.data.Updates.canInstall(context)) {
-            showToast("Allow Ravine to install apps, then choose Update again")
-            return
-        }
-        updateStatus = "Downloading…"
-        scope.launch {
-            val apk = withContext(Dispatchers.IO) { runCatching { dev.veil.launcher.data.Updates.download(context, r) }.getOrNull() }
-            if (apk == null) { updateStatus = "Download failed · try again"; return@launch }
-            updateStatus = null
-            runCatching { dev.veil.launcher.data.Updates.install(context, apk) }
-                .onFailure { updateStatus = "Couldn't open the installer" }
-        }
-    }
-
-    /** Ravine: the team's visualizer colours while its game is on. */
-    var teamVisualizer by mutableStateOf(prefs.getBoolean("team_visualizer", true).also { dev.veil.launcher.viz.VizPresets.teamVisualizer = it })
-        private set
-
-    fun toggleTeamVisualizer() {
-        teamVisualizer = !teamVisualizer
-        dev.veil.launcher.viz.VizPresets.teamVisualizer = teamVisualizer
-        prefs.edit().putBoolean("team_visualizer", teamVisualizer).apply()
-    }
-
-    // ---- Game day (Ravine) -----------------------------------------------------------------------
-
-    /** The game on the strip (see GameDay): next start today, live score, or a recent final. */
-    var game by mutableStateOf<dev.veil.launcher.data.Game?>(GameDay.current)
-        private set
-    private var gameBusy = false
-
-    private fun tickGames() {
-        if (gameBusy || gameTeams.isEmpty()) { if (gameTeams.isEmpty()) game = null; return }
-        gameBusy = true
-        scope.launch {
-            try {
-                game = withContext(Dispatchers.IO) { runCatching { GameDay.tick(context) }.getOrNull() }
-            } finally { gameBusy = false }
-        }
-    }
-
-    var gameTeams by mutableStateOf(GameDay.enabledTeams(context))
-        private set
-
-    fun toggleTeam(key: String) {
-        gameTeams = if (key in gameTeams) gameTeams - key else gameTeams + key
-        prefs.edit().putStringSet("game_teams", gameTeams).apply()
-        tickGames()
-    }
-
-    /** Courtside is set up for provider channel names (PROJECT.md D30). */
-    val courtsideChannels: Boolean get() = runCatching { dev.veil.launcher.data.CourtsideGuide.configured(context) }.getOrDefault(false)
-
-    var teamWallpapers by mutableStateOf(prefs.getBoolean("team_wallpapers", true))
-        private set
-
-    fun toggleTeamWallpapers() {
-        teamWallpapers = !teamWallpapers
-        prefs.edit().putBoolean("team_wallpapers", teamWallpapers).apply()
-    }
-
-    /** The app the game strip opens (default TiviMate). */
-    var watchWith by mutableStateOf(prefs.getString("watch_with", "ar.tvplayer.tv") ?: "ar.tvplayer.tv")
-        private set
-
-    val watchWithLabel: String get() = apps.firstOrNull { it.pkg == watchWith }?.label ?: "TiviMate"
-
-    fun cycleWatchWith() {
-        val choices = pinnedApps.map { it.pkg }.ifEmpty { listOf(watchWith) }
-        watchWith = choices[(choices.indexOf(watchWith) + 1).mod(choices.size)]
-        prefs.edit().putString("watch_with", watchWith).apply()
-    }
-
-    /**
-     * OK on the game strip: always the "Watch games in" app (TiviMate by default), never Courtside
-     * (PROJECT.md D29: TiviMate's playback is the reliable one).
-     */
-    fun openGame() {
-        if (game == null) return
-        val pm = context.packageManager
-        (pm.getLeanbackLaunchIntentForPackage(watchWith) ?: pm.getLaunchIntentForPackage(watchWith))
-            ?.let { start(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 
     // ---- Ravine menu settings ------------------------------------------------------------------
@@ -414,15 +219,6 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         val opts = listOf(2, 5, 10, 15, 30, 0)
         ambientMinutes = opts[(opts.indexOf(ambientMinutes) + 1).mod(opts.size)]
         prefs.edit().putInt("ambient_minutes", ambientMinutes).apply()
-    }
-
-    var rotateMinutes by mutableStateOf(wallpapers.rotateMinutes)
-        private set
-
-    fun cycleRotateMinutes() {
-        val opts = listOf(5, 10, 20, 30, 60)
-        rotateMinutes = opts[(opts.indexOf(rotateMinutes) + 1).mod(opts.size)]
-        wallpapers.rotateMinutes = rotateMinutes
     }
 
     fun cycleTheme() {
@@ -459,15 +255,6 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     }
 
     fun finishMove() { movingPkg = null }
-
-    /** Ravine: film grain over the photo (on by default). */
-    var filmGrain by mutableStateOf(prefs.getBoolean("film_grain", true))
-        private set
-
-    fun toggleFilmGrain() {
-        filmGrain = !filmGrain
-        prefs.edit().putBoolean("film_grain", filmGrain).apply()
-    }
 
     fun move(app: AppEntry, delta: Int) {
         val visible = pinnedApps.map { it.pkg }.toMutableList()
@@ -595,10 +382,10 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         dnsResumeAt = dns.resumeAt
         val now = System.currentTimeMillis()
         minuteTick = now
-        tickGames()
-        tickShows(now)
-        tickUpdates(now)
-        tickWallpapers(now)
+        gameDay.tick()
+        shows.tick(now)
+        updates.tick(now)
+        walls.tick(now)
         // A pause that ended while the alarm was delayed: resume now.
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()
         if (weatherSource.enabled && now - lastWeather > 30 * 60_000) {
@@ -644,10 +431,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
 
     /** Clears progress on Trakt and hides the show from Trakt's progress (Up Next). */
     fun removeFromRow(item: WatchItem) = if (item.youtubeId != null) {
-        // A daily show: hide it until the next episode (it counts as opened).
-        context.getSharedPreferences("ravine_shows", Context.MODE_PRIVATE).edit().putString("dismissed", item.youtubeId).apply()
-        showEpisode = null
-        publishItems(baseItems)
+        // A daily show: hide it until the next episode.
+        shows.dismiss(item.youtubeId)
         showToast("Removed ${item.title} from Continue Watching")
     } else if (!connected) {
         LocalHistory.hide(item.key)

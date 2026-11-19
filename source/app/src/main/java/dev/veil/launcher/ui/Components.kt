@@ -286,7 +286,7 @@ fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
                 if (privacyFocused) { delay(200); state.onPrivacyFocus(true) } else state.onPrivacyFocus(false)
             }
             // Ravine game day: today's game, its live score, or the final (PROJECT.md D27).
-            state.game?.let { GameStrip(it, state.minuteTick, onClick = state::openGame) }
+            state.gameDay.game?.let { GameStrip(it, state.minuteTick, onClick = state.gameDay::openGame) }
             // Ravine: the ad-blocking pill is off unless turned on in the menu (PROJECT.md D4).
             if (state.showPrivacy) PrivacyPill(state, Modifier.onFocusChanged { privacyFocused = it.isFocused })
             Surface(

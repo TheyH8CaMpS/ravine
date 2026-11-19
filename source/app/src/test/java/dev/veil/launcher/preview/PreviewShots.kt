@@ -181,7 +181,7 @@ class PreviewShots {
     }
 
     @Test fun menuUpdate() = shoot("menu-update", newState()) { s ->
-        s.update = dev.veil.launcher.data.Updates.Release(20, "Ravine 0.1.0 (build 20)", "https://example.invalid/ravine.apk")
+        s.updates.release = dev.veil.launcher.data.Updates.Release(20, "Ravine 0.1.0 (build 20)", "https://example.invalid/ravine.apk")
         s.veilMenuOpen = true
     }
 

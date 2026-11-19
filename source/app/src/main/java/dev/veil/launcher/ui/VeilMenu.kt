@@ -177,7 +177,7 @@ private fun VeilPanel(state: LauncherState) {
             }
             .width(400.dp).heightIn(max = 470.dp).clip(shape).background(Veil.Sheet).border(1.dp, Veil.Line, shape),
     ) {
-        GrainLayer(state.filmGrain, Modifier.matchParentSize())
+        GrainLayer(state.walls.filmGrain, Modifier.matchParentSize())
         Column(
             Modifier.verticalScroll(scroll).padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -198,17 +198,17 @@ private fun VeilPanel(state: LauncherState) {
             Spacer(Modifier.height(10.dp))
 
             // A newer Ravine is out: one line at the top until it's installed.
-            state.update?.let { u ->
-                IndexRow("Update ready", state.updateStatus ?: "Build ${u.build}", arrow = true, onClick = state::installUpdate)
+            state.updates.release?.let { u ->
+                IndexRow("Update ready", state.updates.status ?: "Build ${u.build}", arrow = true, onClick = state.updates::install)
                 Spacer(Modifier.height(4.dp))
             }
 
             Section("I", "Wallpaper")
-            val w = state.wallpaper
-            IndexRow("Next photo", w?.title?.takeIf(String::isNotBlank) ?: "…", serifValue = true, onClick = state::nextWallpaper)
-            IndexRow("Change photo every", "${state.rotateMinutes} min", onClick = state::cycleRotateMinutes)
-            IndexRow("Picture depth", PictureDepth.name(state.pictureDepth), onClick = state::cyclePictureDepth)
-            IndexRow("Film grain", if (state.filmGrain) "On" else "Off", onClick = state::toggleFilmGrain)
+            val w = state.walls.current
+            IndexRow("Next photo", w?.title?.takeIf(String::isNotBlank) ?: "…", serifValue = true, onClick = state.walls::next)
+            IndexRow("Change photo every", "${state.walls.rotateMinutes} min", onClick = state.walls::cycleRotateMinutes)
+            IndexRow("Picture depth", PictureDepth.name(state.walls.pictureDepth), onClick = state.walls::cyclePictureDepth)
+            IndexRow("Film grain", if (state.walls.filmGrain) "On" else "Off", onClick = state.walls::toggleFilmGrain)
 
             Section("II", "Ambient")
             IndexRow("Start Ambient now", arrow = true, onClick = state::startAmbient)
@@ -239,20 +239,20 @@ private fun VeilPanel(state: LauncherState) {
                 "Weather", state.weatherPlace ?: "Set place", modifier = Modifier.focusRequester(weatherButton),
                 onClick = { state.weatherPicker = true },
             )
-            IndexRow("The Yak daily", if (state.followYak) "On" else "Off", onClick = state::toggleFollowYak)
+            IndexRow("The Yak daily", if (state.shows.followYak) "On" else "Off", onClick = state.shows::toggleFollowYak)
             IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
             IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
 
             Section("V", "Game day")
             dev.veil.launcher.data.MyTeams.all.forEach { t ->
-                IndexRow(t.name, if (t.key in state.gameTeams) "On" else "Off", swatch = Color(t.color)) { state.toggleTeam(t.key) }
+                IndexRow(t.name, if (t.key in state.gameDay.teams) "On" else "Off", swatch = Color(t.color)) { state.gameDay.toggleTeam(t.key) }
             }
-            IndexRow("Team wallpapers", if (state.teamWallpapers) "On" else "Off", onClick = state::toggleTeamWallpapers)
-            IndexRow("Team visualizer", if (state.teamVisualizer) "On" else "Off", onClick = state::toggleTeamVisualizer)
-            IndexRow("Watch games in", state.watchWithLabel, onClick = state::cycleWatchWith)
+            IndexRow("Team wallpapers", if (state.gameDay.teamWallpapers) "On" else "Off", onClick = state.gameDay::toggleTeamWallpapers)
+            IndexRow("Team visualizer", if (state.gameDay.teamVisualizer) "On" else "Off", onClick = state.gameDay::toggleTeamVisualizer)
+            IndexRow("Watch games in", state.gameDay.watchWithLabel, onClick = state.gameDay::cycleWatchWith)
             Note(
-                if (state.courtsideChannels) "Channel names from Courtside, as in TiviMate's guide."
+                if (state.gameDay.courtsideChannels) "Channel names from Courtside, as in TiviMate's guide."
                 else "Channel names from ESPN. Courtside can supply your provider's channels (set up over ADB).",
             )
 

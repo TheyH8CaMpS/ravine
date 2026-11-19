@@ -90,7 +90,7 @@ fun VeilApp(state: LauncherState) {
             weeklyBlocked = state.dnsWeekly?.blocked,
             seasonal = state.seasonal,
             lyrics = state.lyricsMusic,
-            game = state.game,
+            game = state.gameDay.game,
         )
     }
 
