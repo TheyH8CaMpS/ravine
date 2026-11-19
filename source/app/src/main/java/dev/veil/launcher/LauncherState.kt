@@ -251,6 +251,100 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun unpin(app: AppEntry) = savePins(pins - app.pkg)
 
     /** Moves a pinned app one step left (-1) or right (+1) among the apps that are installed. */
+    // ---- Continue Watching assembly + daily shows (Ravine) ----------------------------------------
+
+    /** Nuvio/Trakt items, before the daily show card is put in front. */
+    private var baseItems: List<WatchItem> = emptyList()
+
+    /** Today's episode of a followed YouTube show (The Yak), if it's up and not dismissed. */
+    private var showEpisode: dev.veil.launcher.data.YouTubeShows.Episode? = null
+    private var lastShowCheck = 0L
+
+    var followYak by mutableStateOf(prefs.getBoolean("follow_yak", true))
+        private set
+
+    fun toggleFollowYak() {
+        followYak = !followYak
+        prefs.edit().putBoolean("follow_yak", followYak).apply()
+        lastShowCheck = 0L
+        if (!followYak) { showEpisode = null; publishItems(baseItems) } else tickShows(System.currentTimeMillis())
+    }
+
+    /** The row = the daily show (newest, first) + Nuvio/Trakt items; keeps focus on the same card if it's still there. */
+    private fun publishItems(base: List<WatchItem>) {
+        baseItems = base
+        val show = showEpisode?.let { e ->
+            dev.veil.launcher.data.YouTubeShows.toItem(e, isNew = !dev.veil.launcher.data.YouTubeShows.opened(context, e.videoId))
+        }
+        val merged = listOfNotNull(show) + base
+        items = merged
+        VeilCache.items = merged
+        val keep = merged.firstOrNull { it.key == focused?.key }
+        focused = keep ?: merged.firstOrNull()
+        focusedIndex = if (keep != null) merged.indexOf(keep) else 0
+    }
+
+    /** Checks the show's feed every 20 minutes while Home is up. */
+    private fun tickShows(now: Long) {
+        if (!followYak || now - lastShowCheck < 20 * 60_000L) return
+        lastShowCheck = now
+        scope.launch {
+            val e = withContext(Dispatchers.IO) {
+                runCatching { dev.veil.launcher.data.YouTubeShows.fetch(dev.veil.launcher.data.YouTubeShows.THE_YAK) }.getOrNull()
+            }
+            val dismissed = context.getSharedPreferences("ravine_shows", Context.MODE_PRIVATE).getString("dismissed", null)
+            val next = e?.takeIf { it.videoId != dismissed }
+            if (next?.videoId != showEpisode?.videoId) { showEpisode = next; publishItems(baseItems) }
+        }
+    }
+
+    // ---- Update notice (Ravine) ----------------------------------------------------------------
+
+    /** A newer Ravine release, if any (checked every 6 hours). */
+    var update by mutableStateOf<dev.veil.launcher.data.Updates.Release?>(null)
+        internal set // internal: preview tests set it
+    var updateStatus by mutableStateOf<String?>(null)
+        private set
+    private var lastUpdateCheck = 0L
+
+    private fun tickUpdates(now: Long) {
+        if (now - lastUpdateCheck < 6 * 60 * 60_000L) return
+        lastUpdateCheck = now
+        scope.launch {
+            update = withContext(Dispatchers.IO) {
+                runCatching { dev.veil.launcher.data.Updates.check(BuildConfig.VERSION_CODE) }.getOrNull()
+            }
+        }
+    }
+
+    /** "Update ready" in the menu: one-time install permission, then download and Android's installer. */
+    fun installUpdate() {
+        val r = update ?: return
+        if (updateStatus == "Downloading…") return
+        if (!dev.veil.launcher.data.Updates.canInstall(context)) {
+            showToast("Allow Ravine to install apps, then choose Update again")
+            return
+        }
+        updateStatus = "Downloading…"
+        scope.launch {
+            val apk = withContext(Dispatchers.IO) { runCatching { dev.veil.launcher.data.Updates.download(context, r) }.getOrNull() }
+            if (apk == null) { updateStatus = "Download failed · try again"; return@launch }
+            updateStatus = null
+            runCatching { dev.veil.launcher.data.Updates.install(context, apk) }
+                .onFailure { updateStatus = "Couldn't open the installer" }
+        }
+    }
+
+    /** Ravine: the team's visualizer colours while its game is on. */
+    var teamVisualizer by mutableStateOf(prefs.getBoolean("team_visualizer", true).also { dev.veil.launcher.viz.VizPresets.teamVisualizer = it })
+        private set
+
+    fun toggleTeamVisualizer() {
+        teamVisualizer = !teamVisualizer
+        dev.veil.launcher.viz.VizPresets.teamVisualizer = teamVisualizer
+        prefs.edit().putBoolean("team_visualizer", teamVisualizer).apply()
+    }
+
     // ---- Game day (Ravine) -----------------------------------------------------------------------
 
     /** The game on the strip (see GameDay): next start today, live score, or a recent final. */
@@ -414,11 +508,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
             loading = true
             try {
                 val result = withContext(Dispatchers.IO) { ContinueWatching.load(trakt, tmdb) }
-                items = result
-                VeilCache.items = result
-                val keep = result.firstOrNull { it.key == focused?.key }
-                focused = keep ?: result.firstOrNull()
-                focusedIndex = if (keep != null) result.indexOf(keep) else 0
+                publishItems(result)
                 error = null
             } catch (e: Exception) {
                 error = "Couldn't reach Trakt"
@@ -443,11 +533,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
             loading = true
             try {
                 val result = withContext(Dispatchers.IO) { LocalHistory.items(tmdb) }
-                items = result
-                VeilCache.items = result
-                val keep = result.firstOrNull { it.key == focused?.key }
-                focused = keep ?: result.firstOrNull()
-                focusedIndex = if (keep != null) result.indexOf(keep) else 0
+                publishItems(result)
                 error = null
             } catch (e: Exception) {
                 error = "Couldn't load your history"
@@ -510,6 +596,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         val now = System.currentTimeMillis()
         minuteTick = now
         tickGames()
+        tickShows(now)
+        tickUpdates(now)
         tickWallpapers(now)
         // A pause that ended while the alarm was delayed: resume now.
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()
@@ -555,15 +643,20 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun markWatched(item: WatchItem) = traktAction(item, "Marked ${label(item)} as watched") { trakt.markWatched(item) }
 
     /** Clears progress on Trakt and hides the show from Trakt's progress (Up Next). */
-    fun removeFromRow(item: WatchItem) = if (!connected) {
+    fun removeFromRow(item: WatchItem) = if (item.youtubeId != null) {
+        // A daily show: hide it until the next episode (it counts as opened).
+        context.getSharedPreferences("ravine_shows", Context.MODE_PRIVATE).edit().putString("dismissed", item.youtubeId).apply()
+        showEpisode = null
+        publishItems(baseItems)
+        showToast("Removed ${item.title} from Continue Watching")
+    } else if (!connected) {
         LocalHistory.hide(item.key)
-        items = items.filter { it.key != item.key }
+        publishItems(baseItems.filter { it.key != item.key })
         showToast("Removed ${item.title} from Continue Watching")
     } else traktAction(item, "Removed ${item.title} from Continue Watching") { trakt.removeFromProgress(item) }
 
     private fun traktAction(item: WatchItem, done: String, call: () -> Boolean) {
-        items = items.filterNot { it.key == item.key }          // instant feedback
-        if (focused?.key == item.key) focused = items.firstOrNull()
+        publishItems(baseItems.filterNot { it.key == item.key })          // instant feedback
         scope.launch {
             val ok = withContext(Dispatchers.IO) { runCatching(call).getOrDefault(false) }
             if (ok) { dev.veil.launcher.ui.Sfx.success(); showToast(done) }
@@ -798,8 +891,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun saveClientId(id: String?) {
         trakt.setClientId(id)
         connected = false
-        items = emptyList()
         focused = null
+        publishItems(emptyList())
         focusedIndex = 0
         startConnect()
     }
@@ -814,8 +907,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun disconnect() {
         trakt.disconnect()
         connected = false
-        items = emptyList()
         focused = null
+        publishItems(emptyList())
         focusedIndex = 0
     }
 
@@ -832,6 +925,12 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
 
     /** Opens the item straight into Nuvio's stream picker, the same way Nuvio's own Watch Next cards do. */
     fun open(item: WatchItem) {
+        // Ravine: a daily YouTube show opens in SmartTube.
+        item.youtubeId?.let { id ->
+            dev.veil.launcher.data.YouTubeShows.open(context, id)
+            publishItems(baseItems) // drops the "NEW" badge
+            return
+        }
         val i = Intent(Intent.ACTION_MAIN)
             .setClassName(NUVIO, "$NUVIO.MainActivity")
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

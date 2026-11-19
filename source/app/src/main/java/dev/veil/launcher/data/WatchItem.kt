@@ -25,19 +25,27 @@ data class WatchItem(
     val thumb: String? = null,
     val logo: String? = null,
     val poster: String? = null,
+    /** Ravine: a YouTube episode (The Yak) opened in SmartTube, not Nuvio. */
+    val youtubeId: String? = null,
+    /** Ravine: replaces the episode/hero line (e.g. "11-18-26 · Brandon Is Sick…"). */
+    val subtitle: String? = null,
 ) {
-    val key: String get() = if (isMovie) "m:${imdb ?: title}" else "s:${traktId ?: title}"
+    val key: String get() = when {
+        youtubeId != null -> "yt:$youtubeId"
+        isMovie -> "m:${imdb ?: title}"
+        else -> "s:${traktId ?: title}"
+    }
 
     /** "S7 E13 · Funeral (1)" or "Movie". */
     val episodeLine: String
-        get() = if (isMovie) "Movie" else buildString {
+        get() = subtitle ?: if (isMovie) "Movie" else buildString {
             append("S$season E$episode")
             episodeTitle?.let { append(" · ").append(it) }
         }
 
     /** Hero line: "Season 7 · Episode 13 — Funeral (1)". */
     val heroLine: String
-        get() = if (isMovie) "Movie" else buildString {
+        get() = subtitle ?: if (isMovie) "Movie" else buildString {
             append("Season $season · Episode $episode")
             episodeTitle?.let { append(" — ").append(it) }
         }

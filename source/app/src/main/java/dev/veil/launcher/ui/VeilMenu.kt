@@ -197,6 +197,12 @@ private fun VeilPanel(state: LauncherState) {
             )
             Spacer(Modifier.height(10.dp))
 
+            // A newer Ravine is out: one line at the top until it's installed.
+            state.update?.let { u ->
+                IndexRow("Update ready", state.updateStatus ?: "Build ${u.build}", arrow = true, onClick = state::installUpdate)
+                Spacer(Modifier.height(4.dp))
+            }
+
             Section("I", "Wallpaper")
             val w = state.wallpaper
             IndexRow("Next photo", w?.title?.takeIf(String::isNotBlank) ?: "…", serifValue = true, onClick = state::nextWallpaper)
@@ -233,6 +239,7 @@ private fun VeilPanel(state: LauncherState) {
                 "Weather", state.weatherPlace ?: "Set place", modifier = Modifier.focusRequester(weatherButton),
                 onClick = { state.weatherPicker = true },
             )
+            IndexRow("The Yak daily", if (state.followYak) "On" else "Off", onClick = state::toggleFollowYak)
             IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
             IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
@@ -242,6 +249,7 @@ private fun VeilPanel(state: LauncherState) {
                 IndexRow(t.name, if (t.key in state.gameTeams) "On" else "Off", swatch = Color(t.color)) { state.toggleTeam(t.key) }
             }
             IndexRow("Team wallpapers", if (state.teamWallpapers) "On" else "Off", onClick = state::toggleTeamWallpapers)
+            IndexRow("Team visualizer", if (state.teamVisualizer) "On" else "Off", onClick = state::toggleTeamVisualizer)
             IndexRow("Watch games in", state.watchWithLabel, onClick = state::cycleWatchWith)
             Note(
                 if (state.courtsideChannels) "Channel names from Courtside, as in TiviMate's guide."

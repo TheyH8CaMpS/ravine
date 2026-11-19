@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <link rel="self" href="http://www.youtube.com/feeds/videos.xml?channel_id=UC8BZMZxcXNJLkVtmR_cd1nA"/>
+ <id>yt:channel:8BZMZxcXNJLkVtmR_cd1nA</id>
+ <yt:channelId>8BZMZxcXNJLkVtmR_cd1nA</yt:channelId>
+ <title>Barstool Yak</title>
+ <link rel="alternate" href="https://www.youtube.com/channel/UC8BZMZxcXNJLkVtmR_cd1nA"/>
+ <author>
+  <name>Barstool Yak</name>
+  <uri>https://www.youtube.com/channel/UC8BZMZxcXNJLkVtmR_cd1nA</uri>
+ </author>
+ <published>2021-02-01T04:36:11+00:00</published>
+ <entry>
+  <yt:videoId>I-1ge-7AwmQ</yt:videoId>
+  <title>How The Yak Cast Looked When GTA V Was Released | Best of The Yak 11-18-26</title>
+  <published>2026-11-19T00:14:06+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>YrqtfknH22w</yt:videoId>
+  <title>Dante is preparing for a 90 day apocalypse</title>
+  <published>2026-11-18T22:49:01+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>ezKrO5NNDuE</yt:videoId>
+  <title>Brandon Is Sick And Tired Of Being Ignored In The Yak Group Chat | The Yak 11-18-26</title>
+  <published>2026-11-18T19:35:19+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>uwnnqWajm_M</yt:videoId>
+  <title>Chef Donny &amp; Reed Put Their Palettes To The Test In A Game Of Brown Tasting | YAK'S WILD - Episode 2</title>
+  <published>2026-11-18T19:33:17+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>QPU3rTYPd3g</yt:videoId>
+  <title>Dante nearly cries after seeing his new banner in Chicago HQ</title>
+  <published>2026-11-18T01:35:26+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>uQ_5-_tY-cA</yt:videoId>
+  <title>KB is officially a married man!</title>
+  <published>2026-11-18T00:42:04+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>dnzUF6Gtipw</yt:videoId>
+  <title>KB Is BACK And He Is Officially A Married Man! | 11-17-26</title>
+  <published>2026-11-18T00:00:15+00:00</published>
+ </entry>
+<entry>
+  <yt:videoId>NaVShIya6r4</yt:videoId>
+  <title>Dante The Don Tells Us How To Prepare For The Upcoming Apocalypse | The Yak 11-17-26</title>
+  <published>2026-11-17T20:05:11+00:00</published>
+ </entry>
+</feed>

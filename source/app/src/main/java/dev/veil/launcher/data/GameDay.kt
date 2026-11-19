@@ -179,7 +179,9 @@ object GameDay {
             schedules.keys.retainAll(keys)
             scheduleTeams = keys
             lastSchedule = now
-            lastRefresh = now
+            // Schedules carry no live scores: fetch the scoreboard right away (a game in progress showed
+            // "Lakers 0 · Jazz 0" for its first minute, caught by a preview during the real Nov 18 game).
+            lastRefresh = 0L
         }
         var pick = pick(schedules.values.flatten(), now)
         if (pick != null) {

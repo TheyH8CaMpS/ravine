@@ -6,12 +6,16 @@ import java.net.URL
 
 /** Minimal HTTP helper. No third-party networking or analytics libraries. */
 internal object Http {
+    /** Tests/previews: refuse all network calls, so results never depend on live services. */
+    @Volatile var offline = false
+
     fun call(
         method: String,
         url: String,
         headers: Map<String, String> = emptyMap(),
         body: String? = null,
     ): Pair<Int, String> {
+        if (offline) throw java.io.IOException("offline (tests)")
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.requestMethod = method

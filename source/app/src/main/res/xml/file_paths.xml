@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ravine: only the downloaded update APK is shared (with Android's installer). -->
+<paths>
+    <external-cache-path name="updates" path="updates/" />
+    <cache-path name="updates_internal" path="updates/" />
+</paths>

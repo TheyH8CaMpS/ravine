@@ -53,6 +53,15 @@ class VizPreset(
 object VizPresets {
     private val P = VizPreset
 
+    /** Ravine game day (PROJECT.md D35): the team's preset while its game is on, if "Team visualizer" is on. */
+    @Volatile var teamVisualizer = true
+    fun gameDayPreset(now: Long = System.currentTimeMillis()): VizPreset? {
+        if (!teamVisualizer) return null
+        val g = dev.veil.launcher.data.GameDay.current?.takeIf { it.inWindow(now) } ?: return null
+        val name = when (g.team.key) { "dodgers" -> "Dodger Blue"; "lakers" -> "Purple and Gold"; "raiders" -> "Silver and Black"; else -> return null }
+        return all.firstOrNull { it.name == name }
+    }
+
     private fun preset(
         name: String,
         vararg params: Pair<String, Float>,

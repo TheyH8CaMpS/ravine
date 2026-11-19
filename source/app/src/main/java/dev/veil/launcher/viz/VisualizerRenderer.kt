@@ -75,7 +75,7 @@ class VisualizerRenderer(
     private var impNext = 0
 
     private val keys = VizPreset.KEYS
-    private var preset = VizPresets.all.random()
+    private var preset = VizPresets.gameDayPreset() ?: VizPresets.all.random()
     private var presetStart = 0f
     private val cur = VizPresets.vary(preset, Random).let { m -> FloatArray(keys.size) { m.getValue(keys[it]) } }
     private val target = cur.copyOf()
@@ -293,7 +293,10 @@ class VisualizerRenderer(
      * been shown recently. Either way its details are re-rolled, so it never looks exactly the same twice.
      */
     private fun nextPreset(t: Float) {
-        val n = if (Random.nextFloat() < 0.35f) {
+        val team = VizPresets.gameDayPreset()
+        val n = if (team != null && Random.nextFloat() < 0.7f) {
+            team // game day: mostly the team's colours, each time re-rolled in its details
+        } else if (Random.nextFloat() < 0.35f) {
             VizPresets.generate(Random)
         } else {
             val pool = VizPresets.all.filter { it.name != preset.name }

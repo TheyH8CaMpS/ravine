@@ -15,6 +15,11 @@ import okhttp3.OkHttpClient
  *   pill thumbnails all stay decoded (instant crossfades). Coil's default disk cache keeps working offline.
  */
 class RavineApp : Application(), ImageLoaderFactory {
+    override fun onCreate() {
+        super.onCreate()
+        dev.veil.launcher.data.CrashLog.install(this) // PROJECT.md D32
+    }
+
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .okHttpClient {
             OkHttpClient.Builder()

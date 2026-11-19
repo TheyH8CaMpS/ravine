@@ -55,6 +55,13 @@ class PreviewShots {
 
     @Before fun setUp() {
         assumeTrue("previews only with -Ppreviews", System.getProperty("ravine.previews") == "true")
+        // Previews never touch live services (ESPN, YouTube, GitHub, TMDB, weather): deterministic screens.
+        dev.veil.launcher.data.Http.offline = true
+        dev.veil.launcher.data.GameDay.reset()
+        dev.veil.launcher.data.GameDay.source = object : dev.veil.launcher.data.GameSource {
+            override fun schedule(team: dev.veil.launcher.data.Team) = emptyList<dev.veil.launcher.data.Game>()
+            override fun refresh(game: dev.veil.launcher.data.Game): dev.veil.launcher.data.Game? = null
+        }
         val wall = photo("wall.jpg"); val la = photo("la.jpg"); val lakers = photo("lakers.jpg")
         Coil.setImageLoader(
             ImageLoader.Builder(context).components {
@@ -158,6 +165,24 @@ class PreviewShots {
             override fun refresh(game: dev.veil.launcher.data.Game) = game
         }
         dev.veil.launcher.data.GameDay.tick(context)
+    }
+
+    private fun yakItem() = dev.veil.launcher.data.YouTubeShows.toItem(
+        dev.veil.launcher.data.YouTubeShows.Episode(
+            dev.veil.launcher.data.YouTubeShows.THE_YAK, "ezKrO5NNDuE",
+            "Brandon Is Sick And Tired Of Being Ignored In The Yak Group Chat", "11-18-26", System.currentTimeMillis(),
+        ),
+        isNew = true,
+    )
+
+    @Test fun yakCard() = shoot("yak-card", newState()) { s ->
+        s.items = listOf(yakItem()) + s.items
+        s.focused = s.items.first(); s.focusArea = "cw"
+    }
+
+    @Test fun menuUpdate() = shoot("menu-update", newState()) { s ->
+        s.update = dev.veil.launcher.data.Updates.Release(20, "Ravine 0.1.0 (build 20)", "https://example.invalid/ravine.apk")
+        s.veilMenuOpen = true
     }
 
     @Test fun gameTonightCourtside() {
