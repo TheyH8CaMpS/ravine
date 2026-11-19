@@ -240,6 +240,7 @@ private fun VeilPanel(state: LauncherState) {
                 onClick = { state.weatherPicker = true },
             )
             IndexRow("The Yak daily", if (state.shows.followYak) "On" else "Off", onClick = state.shows::toggleFollowYak)
+            IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)
             IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
             IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
@@ -258,7 +259,7 @@ private fun VeilPanel(state: LauncherState) {
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "Back to close", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                "${state.updates.currentLabel}  ·  Back to close", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.4f),
             )
         }

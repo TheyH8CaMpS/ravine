@@ -64,7 +64,29 @@ class UpdateState(
     private val scope: CoroutineScope,
     private val toast: (String) -> Unit,
 ) {
-    /** A newer Ravine release, if any (checked every 6 hours). */
+    private val prefs = context.getSharedPreferences("ravine_updates", Context.MODE_PRIVATE)
+
+    /**
+     * "Install updates: Automatic" (D42): download a new build in the background and open Android's install
+     * screen the next time Home comes up, so updating is one press. Android requires that press for any
+     * sideloaded app; only system apps can install silently.
+     */
+    var automatic by mutableStateOf(prefs.getBoolean("automatic", true))
+        private set
+
+    fun toggleAutomatic() {
+        automatic = !automatic
+        prefs.edit().putBoolean("automatic", automatic).apply()
+        if (automatic) lastCheck = 0L
+    }
+
+    /** This install, for the menu footer ("Ravine 0.1.0 · build 24"). */
+    val currentLabel: String = "Ravine ${BuildConfig.VERSION_NAME} · build ${Updates.currentBuild(BuildConfig.VERSION_CODE)}"
+
+    private var downloaded: java.io.File? = null
+    private var downloadedBuild = -1
+
+    /** A newer Ravine release, if any (checked every 2 hours). */
     var release by mutableStateOf<Updates.Release?>(null)
         internal set // internal: preview tests set it
     var status by mutableStateOf<String?>(null)
@@ -72,11 +94,29 @@ class UpdateState(
     private var lastCheck = 0L
 
     fun tick(now: Long) {
-        if (now - lastCheck < 6 * 60 * 60_000L) return
+        if (now - lastCheck < 2 * 60 * 60_000L) return
         lastCheck = now
         scope.launch {
-            release = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_CODE) }.getOrNull() }
+            val r = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_CODE) }.getOrNull() }
+            release = r
+            if (r != null && automatic && downloadedBuild != r.build) {
+                val apk = withContext(Dispatchers.IO) { runCatching { Updates.download(context, r) }.getOrNull() }
+                if (apk != null) { downloaded = apk; downloadedBuild = r.build }
+            }
         }
+    }
+
+    /**
+     * Home is on screen: with Automatic on and a downloaded build waiting, open the install screen, once per
+     * build (if it's dismissed, "Update ready" stays in the menu).
+     */
+    fun onHome() {
+        val apk = downloaded ?: return
+        if (!automatic || prefs.getInt("prompted_build", -1) == downloadedBuild) return
+        // Silent check: never jump to Settings just because Home came up; "Update ready" handles the permission.
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) return
+        prefs.edit().putInt("prompted_build", downloadedBuild).apply()
+        runCatching { Updates.install(context, apk) }
     }
 
     /** One-time install permission, then download and Android's installer. */
