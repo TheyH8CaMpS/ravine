@@ -240,6 +240,11 @@ private fun VeilPanel(state: LauncherState) {
                 onClick = { state.weatherPicker = true },
             )
             IndexRow("The Yak daily", if (state.shows.followYak) "On" else "Off", onClick = state.shows::toggleFollowYak)
+            IndexRow(
+                "Check for updates",
+                state.updates.status ?: state.updates.release?.let { "Build ${it.build} ready" } ?: "Build ${dev.veil.launcher.data.Updates.currentBuild(dev.veil.launcher.BuildConfig.VERSION_CODE)}",
+                onClick = state.updates::checkNow,
+            )
             IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)
             IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
             IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)

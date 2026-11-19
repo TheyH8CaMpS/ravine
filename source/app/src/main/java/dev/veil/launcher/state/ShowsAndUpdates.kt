@@ -119,6 +119,25 @@ class UpdateState(
         runCatching { Updates.install(context, apk) }
     }
 
+    /**
+     * "Check for updates" in the menu (D43): checks now, ignoring the 2-hour timer. Up to date → says so;
+     * a newer build → straight to download and Android's install screen.
+     */
+    fun checkNow() {
+        if (status == "Checking…" || status == "Downloading…") return
+        status = "Checking…"
+        lastCheck = System.currentTimeMillis()
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_CODE) } }
+            status = null
+            when {
+                r.isFailure -> status = "Couldn't reach GitHub · try again"
+                r.getOrNull() == null -> { release = null; status = "Up to date" }
+                else -> { release = r.getOrNull(); install() }
+            }
+        }
+    }
+
     /** One-time install permission, then download and Android's installer. */
     fun install() {
         val r = release ?: return

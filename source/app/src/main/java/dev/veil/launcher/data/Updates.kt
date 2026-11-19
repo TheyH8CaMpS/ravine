@@ -38,7 +38,8 @@ object Updates {
     /** The latest release if it's newer than [versionCode]. Network: call off the main thread. */
     fun check(versionCode: Int): Release? {
         val (code, text) = Http.call("GET", LATEST, mapOf("Accept" to "application/vnd.github+json"))
-        if (code != 200) return null
+        // A failed check is an error, not "up to date" (Check for updates says which).
+        if (code != 200) error("GitHub answered $code")
         return parse(JSONObject(text))?.takeIf { it.build > currentBuild(versionCode) }
     }
 
