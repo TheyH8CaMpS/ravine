@@ -81,6 +81,7 @@ They're out of scope.
 | D35 | Team visualizer: during a game-day window the visualizer picks the team's preset ~70% of the time (Dodger Blue / Purple and Gold / Silver and Black). Menu V toggle | Owner's choice |
 | D36 | Game day fetches the live scoreboard immediately after loading schedules | Schedules carry no live scores: a preview during the real Nov 18 game showed "Lakers 0 · Jazz 0" for the first minute |
 | D37 | Previews are fully offline (`Http.offline`, fake GameSource): they never reach ESPN, YouTube, GitHub, TMDB or weather | A preview picked up the live game and the real Yak feed |
+| D38 | No "Back to live TV" card. TiviMate publishes no media session (`dumpsys media_session` on the Shield, 2026-11-19, listed only Spotify and Netflix), so Ravine can't know the channel or reopen it. Instead the owner turns on TiviMate's own "start with last channel" option, so the dock's TiviMate icon returns to the last channel | A card without a channel would duplicate the dock icon |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 
