@@ -113,7 +113,7 @@ private fun AppTile(app: AppEntry, pinned: Boolean, onClick: () -> Unit, onLongC
                 Image(banner, contentDescription = app.label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             } else {
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    app.icon?.let { Image(it, contentDescription = null, modifier = Modifier.size(34.dp).clip(CircleShape)) }
+                    app.icon?.let { Image(it, contentDescription = null, modifier = Modifier.size(34.dp)) }
                     Spacer(Modifier.height(6.dp))
                     Text(
                         app.label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,

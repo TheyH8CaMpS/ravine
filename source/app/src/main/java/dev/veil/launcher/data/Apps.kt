@@ -58,9 +58,10 @@ object Apps {
                 (ri.activityInfo.loadBanner(pm) ?: ri.activityInfo.applicationInfo.loadBanner(pm))
                     ?.toBitmap(320, 180)?.asImageBitmap()
             }.getOrNull()
-            // Icons are used for the round Home pills; 120px covers a 30dp circle at 2x density.
+            // Ravine (D50): the app's mark on a transparent background where possible; 160 px covers the
+            // dock's 40 dp at 2x density and the lift on focus.
             val icon = runCatching {
-                ri.activityInfo.applicationInfo.loadIcon(pm).toBitmap(120, 120).asImageBitmap()
+                AppIcons.plate(ri.activityInfo.applicationInfo.loadIcon(pm)).asImageBitmap()
             }.getOrNull()
             AppEntry(p, ri.loadLabel(pm).toString(), banner, icon, launch).also { cache[p] = Cached(updated, locale, it) }
         }.sortedBy { it.label.lowercase() }

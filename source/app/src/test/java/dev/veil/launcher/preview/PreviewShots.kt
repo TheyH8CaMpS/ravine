@@ -100,7 +100,7 @@ class PreviewShots {
 
     private fun newState(): LauncherState {
         val state = LauncherState(context, CoroutineScope(SupervisorJob() + Dispatchers.Main))
-        state.apps = APPS.map { (pkg, label, color) -> AppEntry(pkg, label, null, icon(label, color), Intent()) }
+        state.apps = APPS.map { (pkg, label, color) -> AppEntry(pkg, label, null, plateIcon(label, color), Intent()) }
         state.refreshExtras() // applies game day (team wallpapers) like the minute tick does
         state.items = listOf(
             WatchItem(
@@ -110,6 +110,24 @@ class PreviewShots {
         )
         return state
     }
+
+    /**
+     * Stand-in adaptive icon (dark background layer, the app's initial in its colour as the foreground), run
+     * through the same AppIcons.plate as on the TV: so the preview shows a mark on a transparent background.
+     */
+    private fun plateIcon(label: String, color: Int) = dev.veil.launcher.data.AppIcons.plate(
+        android.graphics.drawable.AdaptiveIconDrawable(
+            android.graphics.drawable.ColorDrawable(0xFF101010.toInt()),
+            android.graphics.drawable.BitmapDrawable(context.resources, Bitmap.createBitmap(216, 216, Bitmap.Config.ARGB_8888).also { b ->
+                val c = Canvas(b)
+                val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+                c.drawRoundRect(android.graphics.RectF(66f, 66f, 150f, 150f), 22f, 22f, p)
+                c.drawText(label.take(1), 108f, 126f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = android.graphics.Color.WHITE; textSize = 52f; textAlign = Paint.Align.CENTER; isFakeBoldText = true
+                })
+            }),
+        ),
+    ).asImageBitmap()
 
     /** Placeholder app icon: a coloured disc with the app's initial. */
     private fun icon(label: String, color: Int) = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).also { b ->

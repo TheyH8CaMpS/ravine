@@ -112,11 +112,13 @@ private fun ramp(t: Float, stops: FloatArray, values: FloatArray): Float {
     return values.last()
 }
 
-private val H_STOPS = floatArrayOf(0f, 0.42f, 0.78f)
-private val H_ALPHA = floatArrayOf(0.94f, 0.6f, 0.05f)
+// Ravine (D50): lighter, so the photo reaches the corners; text keeps a soft wash (was 0.94 / 0.6 / 0.05).
+private val H_STOPS = floatArrayOf(0f, 0.4f, 0.7f)
+private val H_ALPHA = floatArrayOf(0.72f, 0.34f, 0f)
 // Ravine: the darkening starts a little higher and is denser behind the rows and dock (Veil: 0.55→0.5, 0.8→0.97).
-private val V_STOPS = floatArrayOf(0f, 0.22f, 0.5f, 0.76f, 1f)
-private val V_ALPHA = floatArrayOf(0.5f, 0f, 0.55f, 0.97f, 1f)
+// Was 0.5 / 0 / 0.55 / 0.97 / 1: the bottom corners went almost solid.
+private val V_STOPS = floatArrayOf(0f, 0.2f, 0.52f, 0.78f, 1f)
+private val V_ALPHA = floatArrayOf(0.45f, 0f, 0.1f, 0.5f, 0.7f)
 private val G_STOPS = floatArrayOf(0f, 0.55f, 1f)
 private val G_ALPHA = floatArrayOf(0.16f, 0.05f, 0f)
 
