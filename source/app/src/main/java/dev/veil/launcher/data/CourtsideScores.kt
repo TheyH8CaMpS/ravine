@@ -18,6 +18,11 @@ object CourtsideScores {
         val state: String, val status: String, val favorite: Boolean, val pick: String?, val situation: String?,
         /** "2 · CBS Los Angeles", from the provider guide TiviMate uses. */
         val channel: String?, val teams: List<Team>,
+        val period: Int = 0,
+        /** Courtside's close-and-late. */
+        val clutch: Boolean = false,
+        /** Courtside's "worth an alert" for games beyond your teams: (kind, text), e.g. ("upset", "Upset · …"). */
+        val notable: Pair<String, String>? = null,
     ) {
         val live get() = state == "in"
         val final get() = state == "post"
@@ -61,6 +66,8 @@ object CourtsideScores {
                 val number = c.optString("number").trim()
                 name.takeIf { it.isNotBlank() }?.let { if (number.isNotEmpty()) "$number · $it" else it }
             },
+            period = g.optInt("period"), clutch = g.optBoolean("clutch"),
+            notable = g.optJSONObject("notable")?.let { n -> n.str("kind")?.let { k -> k to n.optString("text") } },
             teams = g.optJSONArray("teams").objects().map { t ->
                 Team(
                     t.optString("id"), t.optString("abbr"), t.optString("name"), t.str("logo"), color(t.str("color")),

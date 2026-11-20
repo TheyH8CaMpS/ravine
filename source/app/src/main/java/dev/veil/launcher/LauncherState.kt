@@ -519,6 +519,26 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun setTheme(theme: VeilThemeSpec) = ThemeState.set(context, theme)
 
     /** Music mode in Veil Ambient: "veil" (album art) or "viz" (visualizer). */
+    /** Score alerts (D52), run by the Home-button service; settings live in their own prefs. */
+    private val alertPrefs = dev.veil.launcher.alerts.AlertEngine.Settings.prefs(context)
+    var alertMode by mutableStateOf(dev.veil.launcher.alerts.AlertEngine.Settings.mode(context))
+        private set
+    var alertDelay by mutableStateOf(dev.veil.launcher.alerts.AlertEngine.Settings.delaySeconds(context))
+        private set
+
+    fun cycleAlertMode() {
+        val S = dev.veil.launcher.alerts.AlertEngine.Settings
+        val o = listOf(S.TEAMS_BIG, S.TEAMS, S.OFF)
+        alertMode = o[(o.indexOf(alertMode) + 1).mod(o.size)]
+        alertPrefs.edit().putString("mode", alertMode).apply()
+    }
+
+    fun cycleAlertDelay() {
+        val o = dev.veil.launcher.alerts.AlertEngine.Settings.DELAYS
+        alertDelay = o[(o.indexOf(alertDelay) + 1).mod(o.size)]
+        alertPrefs.edit().putInt("delay", alertDelay).apply()
+    }
+
     /** Home while music plays (D51): Poster (default), Sleeve or Off. */
     var musicWallpaper by mutableStateOf(prefs.getString("music_wallpaper", dev.veil.launcher.ui.MusicPoster.POSTER) ?: dev.veil.launcher.ui.MusicPoster.POSTER)
         private set

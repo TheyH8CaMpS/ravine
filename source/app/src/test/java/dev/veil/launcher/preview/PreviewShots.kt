@@ -312,6 +312,27 @@ class PreviewShots {
     @Test fun musicPosterField() = shoot("music-poster-field", musicState(null))
     @Test fun musicSleeve() = shoot("music-sleeve", musicState(null, "sleeve"))
 
+    /** Score alert chips (D52) drawn over a "video" frame, as they appear over TiviMate. */
+    @Test fun alertChips() {
+        val frame = photo("la.jpg").copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(frame)
+        val alerts = listOf(
+            dev.veil.launcher.alerts.ScoreAlerts.Alert("a", "1", true, "TOUCHDOWN · RAIDERS", "Raiders 24 · Broncos 20", 0xFFA5ACAF, "https://preview/logo/LV-a5acaf.png"),
+            dev.veil.launcher.alerts.ScoreAlerts.Alert("b", "2", true, "FINAL · LAKERS WIN", "Lakers 118 · Celtics 112", 0xFFFDB927, "https://preview/logo/LAL-fdb927.png"),
+            dev.veil.launcher.alerts.ScoreAlerts.Alert("c", "3", false, "UPSET · NFL", "Jets 20 · Bills 17", 0xFF125740, null),
+        )
+        var y = 52f
+        alerts.forEach { a ->
+            val v = dev.veil.launcher.alerts.AlertOverlay.chip(context, a)
+            v.measure(android.view.View.MeasureSpec.UNSPECIFIED, android.view.View.MeasureSpec.UNSPECIFIED)
+            v.layout(0, 0, v.measuredWidth, v.measuredHeight)
+            canvas.save(); canvas.translate(frame.width - v.measuredWidth - 64f, y); v.draw(canvas); canvas.restore()
+            y += v.measuredHeight + 40f
+        }
+        outDir.mkdirs()
+        File(outDir, "alert-chips.png").outputStream().use { frame.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     @Test fun gameTonight() { gameDay(dev.veil.launcher.data.Game.State.PRE); shoot("game-tonight", newState()) }
 
     @Test fun gameLive() {

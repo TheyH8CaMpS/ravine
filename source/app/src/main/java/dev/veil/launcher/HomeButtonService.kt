@@ -57,10 +57,28 @@ class HomeButtonService : AccessibilityService() {
         }
     }
 
+    /** The app on screen, for score alerts (D52): your team's alerts wait while TiviMate is open. */
+    @Volatile private var foreground: String? = null
+    private var overlay: dev.veil.launcher.alerts.AlertOverlay? = null
+    private var alerts: dev.veil.launcher.alerts.AlertEngine? = null
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        val o = dev.veil.launcher.alerts.AlertOverlay(this).also { overlay = it }
+        alerts = dev.veil.launcher.alerts.AlertEngine(applicationContext, { foreground }, { o.show(it) }).also { it.start() }
+    }
+
+    override fun onDestroy() {
+        alerts?.stop(); alerts = null
+        overlay?.clear(); overlay = null
+        super.onDestroy()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         // Fallback: if Google's home screen still comes up (e.g. after a system event), replace it.
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        if (pkg != "com.android.systemui" && !pkg.contains("inputmethod", true) && !pkg.contains("keyboard", true)) foreground = pkg
         val cls = event.className?.toString() ?: return
         // If the system still opens Netflix for its button (some firmware does so before apps see the key),
         // put the chosen app back in front. Only within seconds of a press: opening Netflix yourself is untouched.

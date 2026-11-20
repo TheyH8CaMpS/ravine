@@ -262,6 +262,11 @@ private fun VeilPanel(state: LauncherState) {
             IndexRow("Team wallpapers", if (state.gameDay.teamWallpapers) "On" else "Off", onClick = state.gameDay::toggleTeamWallpapers)
             IndexRow("Team visualizer", if (state.gameDay.teamVisualizer) "On" else "Off", onClick = state.gameDay::toggleTeamVisualizer)
             IndexRow("Watch games in", state.gameDay.watchWithLabel, onClick = state.gameDay::cycleWatchWith)
+            IndexRow("Score alerts", dev.veil.launcher.alerts.AlertEngine.Settings.label(state.alertMode), onClick = state::cycleAlertMode)
+            if (state.alertMode != dev.veil.launcher.alerts.AlertEngine.Settings.OFF) {
+                IndexRow("Alert delay", if (state.alertDelay == 0) "None" else "${state.alertDelay} s", onClick = state::cycleAlertDelay)
+                Note("Alerts wait this long so IPTV catches up first. While ${state.gameDay.watchWithLabel} is open during your team's game, its alerts are skipped.")
+            }
             Note(
                 if (state.gameDay.courtsideChannels) "Channel names from Courtside, as in TiviMate's guide."
                 else "Channel names from ESPN. Courtside can supply your provider's channels (set up over ADB).",
