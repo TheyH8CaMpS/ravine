@@ -173,14 +173,20 @@ fun HomeScreen(state: LauncherState) {
                     Modifier.padding(horizontal = EDGE),
                 )
                 else if (showArt || wallpaper == null) Hero(hero, state, Modifier.padding(horizontal = EDGE))
-                else WallpaperCaption(wallpaper, Modifier.padding(horizontal = EDGE))
-                Spacer(Modifier.height(24.dp))
+                if (music != null || showArt || wallpaper == null) Spacer(Modifier.height(24.dp))
                 // Owner: nothing in progress → no row at all (minimalist).
                 if (state.items.isNotEmpty()) {
                     ContinueRow(state, firstFocus, focusKey)
                     Spacer(Modifier.height(14.dp))
                 }
-                AppsRow(state, focusKey)
+                // Owner (D53): the photo's caption sits small in the bottom-right corner, level with the dock,
+                // so the left side isn't stacked.
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Box(Modifier.weight(1f)) { AppsRow(state, focusKey) }
+                    if (music == null && !showArt && wallpaper != null) {
+                        WallpaperCaption(wallpaper, Modifier.padding(start = 16.dp, end = EDGE, bottom = 6.dp))
+                    }
+                }
             }
         }
     }
@@ -538,11 +544,11 @@ private fun WallpaperCaption(wallpaper: dev.veil.launcher.data.Wallpaper, modifi
                 slideInVertically(tween(800, delayMillis = 200, easing = FastOutSlowInEasing)) { rise }) togetherWith
                 fadeOut(tween(250)) using SizeTransform(clip = false)
         },
-        contentAlignment = Alignment.BottomStart,
+        contentAlignment = Alignment.BottomEnd,
         modifier = modifier,
         label = "wallpaper-caption",
     ) { w ->
-        Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.widthIn(max = 280.dp), verticalArrangement = Arrangement.spacedBy(2.dp), horizontalAlignment = Alignment.End) {
             if (w.collection.isNotBlank()) {
                 Text(
                     w.collection.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold,

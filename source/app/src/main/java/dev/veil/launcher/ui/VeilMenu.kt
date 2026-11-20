@@ -79,15 +79,13 @@ import kotlinx.coroutines.withContext
 @Composable
 fun VeilMenuAnchor(state: LauncherState) {
     var focused by remember { mutableStateOf(false) }
-    // Open only after focus has rested here briefly: when Veil comes to the front, focus passes over the
-    // wordmark for a few ms before landing on Continue Watching, which would otherwise flash the menu.
-    LaunchedEffect(focused) {
-        if (focused) { delay(200); if (!state.veilMenuOpen) Sfx.open(); state.veilMenuOpen = true } else state.veilMenuOpen = false
-    }
+    // Owner (D53): the menu opens only on OK, never just because focus passes over the wordmark. Leaving the
+    // wordmark and its menu closes it.
+    LaunchedEffect(focused) { if (!focused) state.veilMenuOpen = false }
     Box(Modifier.onFocusChanged { focused = it.hasFocus; state.wordmarkFocused = it.hasFocus }) {
         // Styled like the other top-bar pills (soft fill + outline + chevron) so it reads as a button.
         Surface(
-            // OK opens/closes the menu (D45); it also opens on focus, and Back closes it.
+            // OK opens/closes the menu (D45, D53: only OK opens it); Back closes it.
             onClick = { if (state.veilMenuOpen) { Sfx.back(); state.veilMenuOpen = false } else { Sfx.open(); state.veilMenuOpen = true } },
             // Back closes the menu from the "veil" button too (not only from inside the menu), by sending
             // focus back to the page, exactly like the panel's own Back handling.
