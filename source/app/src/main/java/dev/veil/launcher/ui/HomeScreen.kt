@@ -85,8 +85,16 @@ fun HomeScreen(state: LauncherState) {
     // Ravine: the wallpaper is Home's picture. A show's artwork takes over only while a Continue Watching
     // card has focus (PROJECT.md §2); without a wallpaper yet, fall back to the show as Veil did.
     val wallpaper = state.walls.current
-    val showArt = hero != null && (state.focusArea == "cw" || wallpaper == null)
-    val backdropUrl = if (showArt) hero?.backdrop else wallpaper?.url
+    // Music (D51): while a song plays, Home becomes its poster (unless a show card has focus).
+    val music = state.musicTrack?.takeIf { state.focusArea != "cw" }
+    val artistPick = rememberArtistPick(music)
+    val showArt = music == null && hero != null && (state.focusArea == "cw" || wallpaper == null)
+    val backdropUrl = when {
+        music != null -> (artistPick as? dev.veil.launcher.data.ArtistArt.Pick.Wide)?.url?.takeIf { state.musicWallpaper == MusicPoster.POSTER }
+            ?: wallpaper?.url
+        showArt -> hero?.backdrop
+        else -> wallpaper?.url
+    }
     val firstFocus = remember { FocusRequester() }
     val requesters = remember { HashMap<String, FocusRequester>() }
     val focusKey: (String) -> FocusRequester = { k -> requesters.getOrPut(k) { FocusRequester() } }
@@ -147,6 +155,8 @@ fun HomeScreen(state: LauncherState) {
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = frost.value }, // invisible (skipped) at 0
             )
         }
+        // Music: the colour field / square photo / soft cover over the wallpaper (wide artist art is the backdrop).
+        if (music != null) MusicBackground(music, state.musicWallpaper, artistPick)
         // Dark fades + artwork-colour glow, pre-rendered as one dithered image (see HomeShade: the GPU is
         // too slow for live full-screen gradients while the backdrop drifts).
         // Picture depth (Ravine): an extra even darkening under the text shading, for TVs that lift dark tones
@@ -158,7 +168,11 @@ fun HomeScreen(state: LauncherState) {
             TopBar(state, modifier = Modifier.zIndex(1f).recede(frostTop).padding(horizontal = EDGE))
             Spacer(Modifier.weight(1f))
             Column(Modifier.recede(frost)) {
-                if (showArt || wallpaper == null) Hero(hero, state, Modifier.padding(horizontal = EDGE))
+                if (music != null) MusicCaption(
+                    music, state.musicWallpaper, artistPick, state.apps.firstOrNull { it.pkg == music.pkg }?.label,
+                    Modifier.padding(horizontal = EDGE),
+                )
+                else if (showArt || wallpaper == null) Hero(hero, state, Modifier.padding(horizontal = EDGE))
                 else WallpaperCaption(wallpaper, Modifier.padding(horizontal = EDGE))
                 Spacer(Modifier.height(24.dp))
                 // Owner: nothing in progress → no row at all (minimalist).

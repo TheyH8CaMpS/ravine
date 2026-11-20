@@ -285,6 +285,33 @@ class PreviewShots {
         s.scores.openGame(dev.veil.launcher.data.CourtsideScores.parseScores(scoresJson).first())
     }
 
+    // ---- Music on Home (D51) ----
+
+    private fun musicState(kind: String?, style: String = "poster"): LauncherState {
+        // Seed the artist-picture cache (previews are offline): wide fan art, a square photo, or nothing.
+        val pick = when (kind) {
+            "wide" -> """{"kind":"wide","urls":["https://preview/wall.jpg"],"at":${System.currentTimeMillis()}}"""
+            "square" -> """{"kind":"square","url":"https://preview/lakers.jpg","at":${System.currentTimeMillis()}}"""
+            else -> """{"kind":"none","at":${System.currentTimeMillis()}}"""
+        }
+        context.getSharedPreferences("ravine_artist_art", Context.MODE_PRIVATE).edit()
+            .putString(dev.veil.launcher.data.ArtistArt.norm("The Lowland Choir"), pick).commit()
+        context.getSharedPreferences("veil", Context.MODE_PRIVATE).edit().putString("music_wallpaper", style).commit()
+        val s = newState()
+        s.items = emptyList()
+        val cover = Bitmap.createScaledBitmap(photo("la.jpg"), 640, 640, true).asImageBitmap()
+        s.nowPlaying.track = dev.veil.launcher.data.NowPlaying.Track(
+            pkg = "com.spotify.tv.android", title = "Cedar Hollow", artist = "The Lowland Choir", album = "Rivers Under Glass",
+            art = cover, artLarge = cover, playing = false, durationMs = 243_000, positionMs = 92_000, positionAt = 0,
+        )
+        return s
+    }
+
+    @Test fun musicPosterWide() = shoot("music-poster-wide", musicState("wide"))
+    @Test fun musicPosterSquare() = shoot("music-poster-square", musicState("square"))
+    @Test fun musicPosterField() = shoot("music-poster-field", musicState(null))
+    @Test fun musicSleeve() = shoot("music-sleeve", musicState(null, "sleeve"))
+
     @Test fun gameTonight() { gameDay(dev.veil.launcher.data.Game.State.PRE); shoot("game-tonight", newState()) }
 
     @Test fun gameLive() {

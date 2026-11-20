@@ -210,6 +210,7 @@ private fun VeilPanel(state: LauncherState) {
             IndexRow("Change photo every", "${state.walls.rotateMinutes} min", onClick = state.walls::cycleRotateMinutes)
             IndexRow("Picture depth", PictureDepth.name(state.walls.pictureDepth), onClick = state.walls::cyclePictureDepth)
             IndexRow("Film grain", FilmGrain.name(state.walls.grainLevel), onClick = state.walls::cycleGrain)
+            IndexRow("While music plays", MusicPoster.label(state.musicWallpaper), onClick = state::cycleMusicWallpaper)
 
             Section("II", "Ambient")
             IndexRow("Start Ambient now", arrow = true, onClick = state::startAmbient)

@@ -89,7 +89,7 @@ import kotlin.math.exp
 import kotlin.math.sin
 
 /** Highlights run this far ahead of the reported position, so they land with the voice, not after it. */
-private const val LEAD_MS = 180L
+internal const val LEAD_MS = 180L
 
 /** Lyrics for the playing song: Loading, then Ready or None. Re-fetched only when the song changes. */
 @Composable

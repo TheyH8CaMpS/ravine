@@ -45,7 +45,7 @@ class NowPlaying(private val context: Context) {
     }
 
     var track by mutableStateOf<Track?>(null)
-        private set
+        internal set // internal: previews set a song
 
     private val msm = context.getSystemService(MediaSessionManager::class.java)
     private val component = ComponentName(context, MediaListener::class.java)

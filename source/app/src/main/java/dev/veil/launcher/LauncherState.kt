@@ -519,6 +519,20 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun setTheme(theme: VeilThemeSpec) = ThemeState.set(context, theme)
 
     /** Music mode in Veil Ambient: "veil" (album art) or "viz" (visualizer). */
+    /** Home while music plays (D51): Poster (default), Sleeve or Off. */
+    var musicWallpaper by mutableStateOf(prefs.getString("music_wallpaper", dev.veil.launcher.ui.MusicPoster.POSTER) ?: dev.veil.launcher.ui.MusicPoster.POSTER)
+        private set
+
+    fun cycleMusicWallpaper() {
+        val o = listOf(dev.veil.launcher.ui.MusicPoster.POSTER, dev.veil.launcher.ui.MusicPoster.SLEEVE, dev.veil.launcher.ui.MusicPoster.OFF)
+        musicWallpaper = o[(o.indexOf(musicWallpaper) + 1).mod(o.size)]
+        prefs.edit().putString("music_wallpaper", musicWallpaper).apply()
+    }
+
+    /** The song Home shows while music plays, or null (off, nothing playing, or a video app). */
+    val musicTrack: dev.veil.launcher.data.NowPlaying.Track?
+        get() = nowPlaying.track?.takeIf { musicWallpaper != dev.veil.launcher.ui.MusicPoster.OFF && dev.veil.launcher.ui.MusicPoster.isMusic(it.pkg) }
+
     var musicStyle by mutableStateOf(prefs.getString("music_style", "veil") ?: "veil")
         private set
     val visualizerAllowed: Boolean
