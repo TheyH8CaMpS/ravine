@@ -38,6 +38,14 @@ Gotcha: Windows Notepad saves `courtside.properties.txt` and hides the `.txt`. P
 the menu shows "Channel names from Courtside". Still to confirm with a real game: the strip showing the
 provider channel instead of ESPN's name.
 
+**Moved (2026-11-22):** Courtside left OpenAI Sites for its own Cloudflare Worker behind the owner's sign-in
+(courtside#211). Two changes keep Ravine connected:
+1. Courtside lets its four `/api/tv/*` routes past the sign-in gate; they still check `COURTSIDE_TV_TOKEN`
+   themselves (courtside#220). The token is now a secret on the Worker instead of in Sites.
+2. A new `courtside.properties` on the Shield with the new address: `COURTSIDE_URL=` and `COURTSIDE_TV_TOKEN=`
+   only. The Sites bypass line is no longer needed; without it Ravine sends no bypass header. Ravine's code
+   didn't change.
+
 To rotate: push a new file. To remove: clear Ravine's data, or unset the Sites secret (Ravine then quietly falls
 back to ESPN's network name).
 

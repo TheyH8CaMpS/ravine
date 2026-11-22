@@ -14,7 +14,7 @@ import java.util.Properties
  *   /sdcard/Android/data/app.ravine.launcher/files/courtside.properties
  *     COURTSIDE_URL=https://…              (Courtside's private address)
  *     COURTSIDE_TV_TOKEN=…                 (Courtside's TV endpoint token)
- *     COURTSIDE_SITES_BYPASS_TOKEN=…       (the owner's Sites bypass token)
+ *     COURTSIDE_SITES_BYPASS_TOKEN=…       (optional; only while Courtside was on OpenAI Sites)
  * Ravine copies it into private app storage and deletes the file. Anything missing or failing → ESPN's name.
  */
 object CourtsideGuide {
