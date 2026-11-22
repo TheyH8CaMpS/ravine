@@ -240,6 +240,10 @@ private fun VeilPanel(state: LauncherState) {
                 onClick = { state.weatherPicker = true },
             )
             IndexRow("The Yak daily", if (state.shows.followYak) "On" else "Off", onClick = state.shows::toggleFollowYak)
+            IndexRow("Yak rewind", state.yakRewind.schedule.label, onClick = state.yakRewind::cycleSchedule)
+            if (state.yakRewind.schedule != dev.veil.launcher.data.YakRewind.Schedule.OFF && !state.yakRewind.configured) {
+                Note("Push yak.properties over ADB to connect yak.campsapps.com.")
+            }
             IndexRow(
                 "Check for updates",
                 state.updates.status ?: state.updates.release?.let { "Build ${it.build} ready" } ?: "Build ${dev.veil.launcher.data.Updates.currentBuild(dev.veil.launcher.BuildConfig.VERSION_CODE)}",

@@ -58,6 +58,76 @@ class ShowsState(
     }
 }
 
+/**
+ * Yak rewind (PROJECT.md D54): an older Yak episode from yak.campsapps.com, in front of Continue Watching on
+ * the chosen days, only while today's Yak card isn't waiting to be watched.
+ */
+class YakRewindState(
+    private val context: Context,
+    private val scope: CoroutineScope,
+    private val prefs: SharedPreferences,
+    private val toast: (String) -> Unit,
+    private val onChange: () -> Unit,
+) {
+    private var pick: dev.veil.launcher.data.YakRewind.Pick? = null
+    private var lastCheck = 0L
+
+    var schedule by mutableStateOf(
+        runCatching { dev.veil.launcher.data.YakRewind.Schedule.valueOf(prefs.getString("yak_rewind", "WEEKENDS")!!) }
+            .getOrDefault(dev.veil.launcher.data.YakRewind.Schedule.WEEKENDS),
+    )
+        private set
+
+    /** Set once yak.properties has been pushed; the menu explains how otherwise. */
+    var configured by mutableStateOf(false)
+        private set
+
+    fun cycleSchedule() {
+        schedule = schedule.next()
+        prefs.edit().putString("yak_rewind", schedule.name).apply()
+        lastCheck = 0L
+        onChange()
+        tick(System.currentTimeMillis())
+    }
+
+    /** The card, if the schedule allows it now and today's episode isn't waiting ([dailyWaiting]). */
+    fun card(dailyWaiting: Boolean, now: Long = System.currentTimeMillis()): WatchItem? {
+        val p = pick ?: return null
+        if (dailyWaiting || !dev.veil.launcher.data.YakRewind.allowed(schedule, now)) return null
+        return dev.veil.launcher.data.YakRewind.toItem(p)
+    }
+
+    private var wasAllowed: Boolean? = null
+
+    /** Refreshes the shared pick every 15 minutes while Home is up (the phone may have changed it). */
+    fun tick(now: Long) {
+        // The card comes and goes with the schedule (e.g. Friday at 5 PM) even when the pick hasn't changed.
+        val allowedNow = dev.veil.launcher.data.YakRewind.allowed(schedule, now)
+        if (wasAllowed != null && wasAllowed != allowedNow && pick != null) onChange()
+        wasAllowed = allowedNow
+        if (schedule == dev.veil.launcher.data.YakRewind.Schedule.OFF || now - lastCheck < 15 * 60_000L) return
+        lastCheck = now
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { dev.veil.launcher.data.YakRewind.configured(context) }
+            configured = ok
+            if (!ok) return@launch
+            val p = withContext(Dispatchers.IO) { runCatching { dev.veil.launcher.data.YakRewind.next(context) }.getOrNull() }
+            if (p != null && p.id != pick?.id) { pick = p; onChange() }
+        }
+    }
+
+    /** Hold-OK → "Seen it" (marks it and deals the next one) or "Another" (skips without marking). */
+    fun act(action: String, id: String) {
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { dev.veil.launcher.data.YakRewind.act(context, action, id) } }
+            if (r.isFailure) { toast("Couldn't reach yak.campsapps.com"); return@launch }
+            pick = r.getOrNull()
+            toast(if (action == "seen") "Marked as seen · ${pick?.left ?: 0} left" else "Here's another one")
+            onChange()
+        }
+    }
+}
+
 /** "Update ready" at the top of the menu (PROJECT.md D33). */
 class UpdateState(
     private val context: Context,

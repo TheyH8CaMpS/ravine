@@ -148,6 +148,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         idleOnHome = { screen == Screen.HOME && !ambient && focusArea != "cw" },
     )
     val shows = dev.veil.launcher.state.ShowsState(context, scope, prefs) { publishItems(baseItems) }
+    val yakRewind = dev.veil.launcher.state.YakRewindState(context, scope, prefs, { showToast(it) }) { publishItems(baseItems) }
     val updates = dev.veil.launcher.state.UpdateState(context, scope) { showToast(it) }
     val remote = dev.veil.launcher.state.RemoteState(context, scope)
     val scores = dev.veil.launcher.state.ScoresState(context, scope)
@@ -204,7 +205,10 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     /** The row = the daily show (newest, first) + Nuvio/Trakt items; keeps focus on the same card if it's still there. */
     private fun publishItems(base: List<WatchItem>) {
         baseItems = base
-        val merged = listOfNotNull(shows.card()) + base
+        // Yak rewind waits until today's episode has been opened (or there isn't one), then leads the row.
+        val daily = shows.card()
+        val rewind = yakRewind.card(dailyWaiting = daily?.isNew == true)
+        val merged = listOfNotNull(rewind, daily) + base
         items = merged
         VeilCache.items = merged
         val keep = merged.firstOrNull { it.key == focused?.key }
@@ -387,6 +391,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         minuteTick = now
         gameDay.tick()
         shows.tick(now)
+        yakRewind.tick(now)
         updates.tick(now)
         walls.tick(now)
         scores.tick(now)
@@ -434,7 +439,9 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     fun markWatched(item: WatchItem) = traktAction(item, "Marked ${label(item)} as watched") { trakt.markWatched(item) }
 
     /** Clears progress on Trakt and hides the show from Trakt's progress (Up Next). */
-    fun removeFromRow(item: WatchItem) = if (item.youtubeId != null) {
+    fun removeFromRow(item: WatchItem) = if (item.rewind && item.youtubeId != null) {
+        yakRewind.act("skip", item.youtubeId)
+    } else if (item.youtubeId != null) {
         // A daily show: hide it until the next episode.
         shows.dismiss(item.youtubeId)
         showToast("Removed ${item.title} from Continue Watching")
