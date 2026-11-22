@@ -29,6 +29,8 @@ data class WatchItem(
     val youtubeId: String? = null,
     /** Ravine: replaces the episode/hero line (e.g. "11-18-26 · Brandon Is Sick…"). */
     val subtitle: String? = null,
+    /** Ravine: the Yak rewind card (an older episode from yak.campsapps.com), not today's show. */
+    val rewind: Boolean = false,
 ) {
     val key: String get() = when {
         youtubeId != null -> "yt:$youtubeId"

@@ -130,6 +130,19 @@ private fun PrivacyMenu(state: LauncherState) {
 
 @Composable
 private fun WatchMenu(state: LauncherState, item: WatchItem) {
+    if (item.rewind && item.youtubeId != null) {
+        val id = item.youtubeId
+        ActionSheet(
+            title = "Yak rewind · ${item.subtitle ?: ""}",
+            actions = listOf(
+                SheetAction("Play", VeilIcons.Play) { state.open(item) },
+                SheetAction("Seen it", VeilIcons.Check) { state.yakRewind.act("seen", id) },
+                SheetAction("Another one", VeilIcons.Unpin) { state.yakRewind.act("skip", id) },
+            ),
+            onDismiss = { state.watchSheet = null },
+        )
+        return
+    }
     val actions = listOf(
         SheetAction("Play", VeilIcons.Play) { state.open(item) },
         // Marking watched writes to Trakt; local history (no account) only supports removing.
