@@ -105,6 +105,14 @@ cp keys.properties.example keys.properties   # then fill in your keys
 ```
 See [`AGENT_INSTALL.md`](AGENT_INSTALL.md) for installing, permissions and performance notes.
 
+### Releasing to the Shield
+
+Every push builds an APK under the workflow run's Artifacts. To publish one the Shield's **Update ready**
+check will offer, put `[release]` in the merge title when merging a pull request. The workflow then
+publishes `v<version>-build<N>` with `ravine.apk`, and the Shield installs it from
+`https://github.com/TheyH8CaMpS/ravine/releases/latest/download/ravine.apk`. A plain `v*` tag also publishes,
+but Ravine builds installed before the Nov 23, 2026 update-check fix only recognise the `-build<N>` style.
+
 ## Credits
 
 - Built with [Claude Code](https://claude.com/claude-code). Kotlin + Jetpack Compose for TV.
