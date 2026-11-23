@@ -94,7 +94,7 @@ A TV can't ask for these with a pop-up, so they're granted over ADB (the install
 
 The install guide has the agent save your TV's current settings and write an **undo script** for your TV
 first. Running it brings back your original home screen, screensaver, DNS and permissions. Veil itself can
-then be removed with `adb uninstall dev.veil.launcher`. Nothing on the TV's system is removed or modified.
+then be removed with `adb uninstall app.ravine.launcher`. Nothing on the TV's system is removed or modified.
 
 ## Building
 

@@ -1,7 +1,7 @@
 # Courtside ↔ Ravine
 
 [Courtside](https://github.com/TheyH8CaMpS/courtside) is the owner's private sports guide: a mobile web app
-(React/vinext on a Cloudflare Worker hosted by OpenAI Sites, owner-only access) with schedules, live scores
+(React/vinext on the `courtside` Cloudflare Worker at courtside.campsapps.com, owner-only access) with schedules, live scores
 (ESPN with theScore fallback), game details, fantasy rosters, a TV-guide matcher that maps games to the
 channels in the owner's provider guide, and in-app playback through a relay and an optional home-PC gateway.
 
@@ -11,7 +11,7 @@ channels in the owner's provider guide, and in-app playback through a relay and 
   (TiviMate by default) and never routes playback through Courtside. Courtside's streaming path (relay or
   home-PC gateway) has been intermittent; TiviMate's has been reliable.
 - **No Courtside APK.** Courtside is built for phones. Wrapping it for the TV (a WebView/TWA) would bring
-  its least reliable part, playback, to the Shield, and its Sites sign-in is awkward with a remote.
+  its least reliable part, playback, to the Shield. At the time, its Sites sign-in was also awkward with a remote.
 - **Scores stay on ESPN, read directly by Ravine.** Courtside uses the same ESPN data, so going through
   Courtside adds a hop and a dependency without adding information.
 - The `courtside://` deep link from the first game-day build was removed.
@@ -20,13 +20,13 @@ channels in the owner's provider guide, and in-app playback through a relay and 
 
 Courtside PR [TheyH8CaMpS/courtside#201](https://github.com/TheyH8CaMpS/courtside/pull/201) (issue #200) adds
 `GET /api/tv/games`, and Ravine's `CourtsideGuide` uses it to show e.g. "512 · Spectrum SportsNet LA" on the game
-strip. It goes live only after the owner merges and deploys #201 and sets the secrets below.
+strip.
 
 **Setup (once):**
 1. In 1Password, generate a random value of 48+ characters as `COURTSIDE_TV_TOKEN` (item `Courtside`).
-2. After deploying #201, add it as the Sites runtime secret `COURTSIDE_TV_TOKEN`.
-3. On the PC, create `courtside.properties` with `COURTSIDE_URL=` (Courtside's https address),
-   `COURTSIDE_TV_TOKEN=` and `COURTSIDE_SITES_BYPASS_TOKEN=` (the existing owner-only bypass value), then:
+2. Set the same value as the Cloudflare Worker runtime secret `COURTSIDE_TV_TOKEN`.
+3. On the PC, create `courtside.properties` with `COURTSIDE_URL=https://courtside.campsapps.com`
+   and `COURTSIDE_TV_TOKEN=` followed by its value, then run
    `adb push courtside.properties /sdcard/Android/data/app.ravine.launcher/files/` and open Ravine. Ravine moves the
    values into private storage and deletes the file. Delete the PC copy too.
 4. The menu's Game day section says "Channel names from Courtside" once it's set up.
@@ -46,10 +46,10 @@ provider channel instead of ESPN's name.
    only. The Sites bypass line is no longer needed; without it Ravine sends no bypass header. Ravine's code
    didn't change.
 
-To rotate: push a new file. To remove: clear Ravine's data, or unset the Sites secret (Ravine then quietly falls
+To rotate: update the Worker secret and push a matching file. To remove: clear Ravine's data, or unset the Worker secret (Ravine then quietly falls
 back to ESPN's network name).
 
-The original proposal follows.
+The following proposal records the original Sites design from November 18, 2026.
 
 ## Where Courtside can still add value (optional, later)
 
