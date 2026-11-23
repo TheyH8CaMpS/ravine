@@ -1,6 +1,9 @@
 # API keys and machine paths: never commit these
 keys.properties
 local.properties
+# Tokens pushed to the TV over ADB; keep local copies out of git too
+courtside.properties
+yak.properties
 
 # Files the install agent creates for your TV (backup + undo script)
 veil-backup.txt

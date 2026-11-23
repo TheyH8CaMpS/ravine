@@ -5,6 +5,8 @@ name: Build APK
 # Release with ravine.apk, so the Shield can always install the newest one with the Downloader app from:
 #   https://github.com/TheyH8CaMpS/ravine/releases/latest/download/ravine.apk
 # (Requested by the owner: Claude sessions can't push tags, so the workflow creates the release itself.)
+# Pull requests build and test too, with read-only access; don't add [skip ci] to code changes, so every PR
+# shows a green "Build APK" run before merge. Only the release job can write to the repository.
 on:
   push:
     branches: [main]
@@ -13,11 +15,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.name }}
     defaults:
       run:
         working-directory: source
@@ -74,14 +78,25 @@ jobs:
         id: version
         run: echo "name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
 
+  release:
+    needs: build
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: ravine-apk
+          path: source
+
       - name: Publish release
-        if: >-
-          startsWith(github.ref, 'refs/tags/v') ||
-          (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', steps.version.outputs.name, github.run_number) }}
-          name: Ravine ${{ steps.version.outputs.name }} (build ${{ github.run_number }})
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', needs.build.outputs.version, github.run_number) }}
+          name: Ravine ${{ needs.build.outputs.version }} (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           files: source/ravine.apk
           generate_release_notes: true

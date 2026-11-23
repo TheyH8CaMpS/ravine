@@ -43,8 +43,8 @@ provider channel instead of ESPN's name.
 1. Courtside lets its four `/api/tv/*` routes past the sign-in gate; they still check `COURTSIDE_TV_TOKEN`
    themselves (courtside#220). The token is now a secret on the Worker instead of in Sites.
 2. A new `courtside.properties` on the Shield with the new address: `COURTSIDE_URL=` and `COURTSIDE_TV_TOKEN=`
-   only. The Sites bypass line is no longer needed; without it Ravine sends no bypass header. Ravine's code
-   didn't change.
+   only. The Sites bypass line is no longer needed. Ravine no longer reads it or sends a bypass header
+   (ravine#5).
 
 To rotate: update the Worker secret and push a matching file. To remove: clear Ravine's data, or unset the Worker secret (Ravine then quietly falls
 back to ESPN's network name).
