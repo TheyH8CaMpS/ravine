@@ -10,7 +10,8 @@ import java.util.Properties
  * provider guide (the same one TiviMate uses) carries a game, e.g. "512 · Spectrum SportsNet LA". Shown on
  * the game strip instead of ESPN's network name. Watching still goes straight to TiviMate.
  *
- * Secrets never ship in the APK (Ravine's releases are public). The owner pushes a one-time file over ADB:
+ * The public release APK includes the configured TMDB_KEY, SIMKL_CLIENT_ID and WEATHER_CITY in BuildConfig.
+ * The owner supplies the Courtside and Yak addresses and tokens separately over ADB. For Courtside, push this file once.
  *   /sdcard/Android/data/app.ravine.launcher/files/courtside.properties
  *     COURTSIDE_URL=https://…              (Courtside's private address)
  *     COURTSIDE_TV_TOKEN=…                 (Courtside's TV endpoint token)
