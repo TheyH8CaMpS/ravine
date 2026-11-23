@@ -19,7 +19,7 @@ language. **Ask before every change on the TV.**
 3. **Ask before every TV change** (installing, granting, settings). Say what it does and how it's undone.
 4. **Don't press buttons on the TV** (`adb shell input keyevent ...`) while the person is using it. Ask them to
    use the remote, or ask permission to take control for a measured test.
-5. **Never `am force-stop dev.veil.launcher`.** Android then switches off its Home-button accessibility
+5. **Never `am force-stop app.ravine.launcher`.** Android then switches off its Home-button accessibility
    service. To restart Veil, press Home on the remote, or reinstall.
 6. **The keys belong to the person.** Ask them for *their own* keys. Never invent, reuse or look up anyone
    else's. Never print keys back in full, commit them, or put them anywhere except `source/keys.properties`.
@@ -82,14 +82,14 @@ those values. It should:
   `cmd role add-role-holder --user 0 android.app.role.HOME <original package>`. On Android 9:
   `cmd package set-home-activity --user 0 <original component>`.
 - **Screensaver:** restore `screensaver_components` to the saved value.
-- **Accessibility:** remove *only* `dev.veil.launcher/dev.veil.launcher.HomeButtonService` from
+- **Accessibility:** remove *only* `app.ravine.launcher/dev.veil.launcher.HomeButtonService` from
   `enabled_accessibility_services`, keeping any other services there. Set `accessibility_enabled` to 0 only if
   nothing else is left.
-- **Notifications:** `cmd notification disallow_listener dev.veil.launcher/dev.veil.launcher.MediaListener`
+- **Notifications:** `cmd notification disallow_listener app.ravine.launcher/dev.veil.launcher.MediaListener`
 - **DNS:** restore `private_dns_mode` and `private_dns_specifier` to the saved values. If a value was `null`,
   use `settings delete global <name>`.
 - **Finish:** wait 30 s, then print the home role holder so the person can see it worked.
-- Mention at the end: `adb uninstall dev.veil.launcher` removes Veil completely.
+- Mention at the end: `adb uninstall app.ravine.launcher` removes Veil completely.
 
 Show the person the script before you go on.
 
@@ -111,8 +111,8 @@ Walk them through getting each key:
   - Only if they want **their own Trakt app**: trakt.tv → Settings → Your API Apps → New application, any
     name, redirect URI `urn:ietf:wg:oauth:2.0:oob`. They can enter its Client ID on the TV (Connect Trakt →
     *Use your own Trakt app*). Veil saves it on the TV and also writes it to
-    `/sdcard/Android/data/dev.veil.launcher/files/trakt.properties`. When you rebuild, copy it into
-    `keys.properties` so it's built in too: `adb shell cat /sdcard/Android/data/dev.veil.launcher/files/trakt.properties`.
+    `/sdcard/Android/data/app.ravine.launcher/files/trakt.properties`. When you rebuild, copy it into
+    `keys.properties` so it's built in too: `adb shell cat /sdcard/Android/data/app.ravine.launcher/files/trakt.properties`.
     Leave `TRAKT_CLIENT_SECRET` empty: new Trakt apps are PKCE-only.
 - **NEXTDNS_PROFILE / NEXTDNS_API_KEY** (optional): my.nextdns.io. The profile ID is in the setup page
   (e.g. `abc123`), the API key at the bottom of the account page. Without them, the privacy switch uses
@@ -138,14 +138,14 @@ computer needs an uninstall first, which also signs them out of Trakt.
 Ask, then run:
 ```sh
 adb install -r app/build/outputs/apk/release/app-release.apk
-adb shell pm grant dev.veil.launcher android.permission.WRITE_SECURE_SETTINGS
-adb shell pm grant dev.veil.launcher android.permission.RECORD_AUDIO
-adb shell cmd notification allow_listener dev.veil.launcher/dev.veil.launcher.MediaListener
+adb shell pm grant app.ravine.launcher android.permission.WRITE_SECURE_SETTINGS
+adb shell pm grant app.ravine.launcher android.permission.RECORD_AUDIO
+adb shell cmd notification allow_listener app.ravine.launcher/dev.veil.launcher.MediaListener
 ```
 Home-button helper: **append** to the existing list, ':'-separated, without replacing it:
 ```sh
 adb shell settings get secure enabled_accessibility_services     # e.g. "null" or "a/b:c/d"
-adb shell settings put secure enabled_accessibility_services "<existing>:dev.veil.launcher/dev.veil.launcher.HomeButtonService"
+adb shell settings put secure enabled_accessibility_services "<existing>:app.ravine.launcher/dev.veil.launcher.HomeButtonService"
 adb shell settings put secure accessibility_enabled 1
 ```
 (If the existing value is `null` or empty, put just Veil's entry.) Veil also re-enables this itself if
@@ -153,13 +153,13 @@ Android ever turns it off.
 
 Make Veil the home screen:
 ```sh
-adb shell cmd role add-role-holder --user 0 android.app.role.HOME dev.veil.launcher        # Android 10+
-adb shell cmd package set-home-activity --user 0 dev.veil.launcher/.MainActivity           # Android 9 (or as fallback)
+adb shell cmd role add-role-holder --user 0 android.app.role.HOME app.ravine.launcher        # Android 10+
+adb shell cmd package set-home-activity --user 0 app.ravine.launcher/dev.veil.launcher.MainActivity           # Android 9 (or as fallback)
 adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME   # check
 ```
 Veil Ambient as the screensaver (the TV's own timeout setting is untouched):
 ```sh
-adb shell settings put secure screensaver_components dev.veil.launcher/dev.veil.launcher.VeilDream
+adb shell settings put secure screensaver_components app.ravine.launcher/dev.veil.launcher.VeilDream
 ```
 Fresh installs need all the grants above. Updates (`install -r`) keep them.
 
@@ -197,9 +197,9 @@ Veil was tuned on a Google TV Streamer (PowerVR GE9215 GPU). Most TVs are simila
 don't guess.** Ask permission first if you'll press remote buttons yourself.
 
 ```sh
-adb shell dumpsys gfxinfo dev.veil.launcher reset
+adb shell dumpsys gfxinfo app.ravine.launcher reset
 # ...person uses Home for ~20 s: move between cards, open the Veil menu and the privacy panel...
-adb shell dumpsys gfxinfo dev.veil.launcher | grep -E "Total frames|Janky frames|90th|95th"
+adb shell dumpsys gfxinfo app.ravine.launcher | grep -E "Total frames|Janky frames|90th|95th"
 ```
 - Home idle is expected to draw only ~30 fps (the slow backdrop drift) with almost no jank.
 - Moving between cards around 5% jank is normal.
@@ -234,7 +234,7 @@ Rules that keep Veil smooth on weak TV GPUs:
   every animated frame (~70% of the main thread).
 - **Fade with `CompositingStrategy.ModulateAlpha`**, not offscreen layers.
 - **Profile:** Veil is `profileable`.
-  `adb shell simpleperf record --app dev.veil.launcher --duration 8 -g -o /data/local/tmp/p.data`, then
+  `adb shell simpleperf record --app app.ravine.launcher --duration 8 -g -o /data/local/tmp/p.data`, then
   `simpleperf report --sort symbol --children`. Decode names with `app/build/outputs/mapping/release/mapping.txt`.
 - The UI is laid out for 1920x1080 at density 2 (dp-based). Other resolutions scale.
 - Unit tests: `./gradlew testReleaseUnitTest`.
@@ -242,7 +242,7 @@ Rules that keep Veil smooth on weak TV GPUs:
 ## Troubleshooting
 
 - **`INSTALL_FAILED_UPDATE_INCOMPATIBLE`**: it was built on another computer (different signature). Ask,
-  then `adb uninstall dev.veil.launcher` and install again. All grants must then be redone.
+  then `adb uninstall app.ravine.launcher` and install again. All grants must then be redone.
 - **Home button stops opening Veil**: check `enabled_accessibility_services` still contains Veil's entry and
   `accessibility_enabled` is 1 (rule 5: no force-stop).
 - **No "now playing" or lyrics**: redo `cmd notification allow_listener ...`.
