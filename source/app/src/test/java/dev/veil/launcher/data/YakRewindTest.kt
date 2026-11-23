@@ -35,6 +35,14 @@ class YakRewindTest {
         assertTrue(item.rewind)
     }
 
+    @Test fun actionSeparatesFailedRequestsFromAnEmptyPoolAndANewPick() {
+        assertTrue(YakRewind.actionResult { null }.isFailure) // call returns null on HTTP errors
+        assertTrue(YakRewind.actionResult { throw java.io.IOException("offline") }.isFailure)
+        assertTrue(YakRewind.actionResult { """{"error":"failed"}""" }.isFailure)
+        assertNull(YakRewind.actionResult { """{"pick":null,"left":0}""" }.getOrThrow())
+        assertEquals("next", YakRewind.actionResult { """{"pick":{"id":"next"},"left":1}""" }.getOrThrow()?.id)
+    }
+
     @Test fun titles() {
         assertEquals("Nick's LGBT Glasses", YakRewind.shortTitle("Nick's LGBT Glasses | The Yak Full Episode 2-4-21"))
         assertEquals("The Yak PB&J Draft", YakRewind.shortTitle("The Yak PB&J Draft | Full Episode 3-26-21"))

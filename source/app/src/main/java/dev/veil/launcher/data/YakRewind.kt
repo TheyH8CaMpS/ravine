@@ -67,9 +67,10 @@ object YakRewind {
     /** Pure, unit-tested: the `/api/tv/next` (or action) response → the pick, if any. */
     fun parse(text: String): Pick? {
         val root = JSONObject(text)
-        val p = root.optJSONObject("pick") ?: return null
+        if (root.get("pick") == JSONObject.NULL) return null
+        val p = root.getJSONObject("pick")
         return Pick(
-            id = p.optString("id").ifBlank { return null },
+            id = p.getString("id").also { require(it.isNotBlank()) },
             title = p.optString("t"),
             date = p.optString("d"),
             minutes = p.optInt("m"),
@@ -94,9 +95,14 @@ object YakRewind {
 
     fun next(context: Context): Pick? = call(context, "GET", "next", null)?.let(::parse)
 
-    /** "seen", "skip" or "unseen" → the new pick. */
-    fun act(context: Context, action: String, id: String?): Pick? =
-        call(context, "POST", action, JSONObject().apply { id?.let { put("id", it) } }.toString())?.let(::parse)
+    /** A successful action may exhaust the pool and return no pick. */
+    fun act(context: Context, action: String, id: String?): Result<Pick?> = actionResult {
+        call(context, "POST", action, JSONObject().apply { id?.let { put("id", it) } }.toString())
+    }
+
+    internal fun actionResult(request: () -> String?): Result<Pick?> = runCatching {
+        parse(checkNotNull(request()) { "Yak action failed" })
+    }
 
     /** SmartTube played a title most of the way: the server marks it seen if it's a New York-era show. */
     fun played(context: Context, title: String) {

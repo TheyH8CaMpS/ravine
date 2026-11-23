@@ -119,10 +119,9 @@ class YakRewindState(
     /** Hold-OK → "Seen it" (marks it and deals the next one) or "Another" (skips without marking). */
     fun act(action: String, id: String) {
         scope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { dev.veil.launcher.data.YakRewind.act(context, action, id) } }
-            if (r.isFailure) { toast("Couldn't reach yak.campsapps.com"); return@launch }
-            pick = r.getOrNull()
-            toast(if (action == "seen") "Marked as seen · ${pick?.left ?: 0} left" else "Here's another one")
+            val result = withContext(Dispatchers.IO) { dev.veil.launcher.data.YakRewind.act(context, action, id) }
+            pick = result.getOrElse { toast("Couldn't update the pick on yak.campsapps.com"); return@launch }
+            toast(if (action == "seen") "Marked as seen · ${pick?.left ?: 0} left" else if (pick == null) "No unseen episodes left" else "Here's another one")
             onChange()
         }
     }
