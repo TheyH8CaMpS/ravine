@@ -1,6 +1,7 @@
 package dev.veil.launcher.alerts
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import dev.veil.launcher.data.CourtsideGuide
@@ -38,25 +39,31 @@ class AlertEngine(
     private val main = Handler(Looper.getMainLooper())
     private var last: Map<String, CourtsideScores.Score> = emptyMap()
     private val shown = HashSet<String>()
-    /** Waiting alerts by game: (due at, alert). */
-    private val pending = HashMap<String, Pair<Long, ScoreAlerts.Alert>>()
+    private val pending = PendingScoreAlerts()
+    private val modeChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "mode" && Settings.mode(context) == Settings.OFF) pending.clear()
+    }
     private val lastShownAt = HashMap<String, Long>()
     @Volatile private var running = false
 
     fun start() {
         if (running) return
         running = true
+        Settings.prefs(context).registerOnSharedPreferenceChangeListener(modeChanged)
         worker.execute { poll() }
     }
 
     fun stop() {
         running = false
+        Settings.prefs(context).unregisterOnSharedPreferenceChangeListener(modeChanged)
+        pending.clear()
         worker.shutdownNow()
     }
 
     private fun poll() {
         if (!running) return
         var next = 10 * 60L
+        val generation = pending.generation
         runCatching {
             val mode = Settings.mode(context)
             if (mode != Settings.OFF && CourtsideGuide.configured(context)) {
@@ -69,36 +76,59 @@ class AlertEngine(
                     val found = ScoreAlerts.detect(last, cur, bigGames = mode == Settings.TEAMS_BIG)
                     last = cur.associateBy { it.id }
                     val due = now + Settings.delaySeconds(context) * 1000L
-                    synchronized(pending) {
-                        found.filter { it.key !in shown }.forEach { a -> shown += a.key; pending[a.gameId] = due to a }
-                    }
+                    pending.enqueue(generation, due, found.filter { shown.add(it.key) })
                     // Every minute while anything is live or about to start; otherwise every 10.
                     val soon = cur.any { it.live || (it.state == "pre" && it.startMs - now in 0..30 * 60_000L) }
-                    if (soon || synchronized(pending) { pending.isNotEmpty() }) next = 60L
+                    if (soon || pending.nextDueAt() != null) next = 60L
                 }
             }
             if (shown.size > 2_000) shown.clear()
         }
-        flush()
+        flush(generation)
         if (running) worker.schedule({ poll() }, minOf(next, nextDueSeconds()), TimeUnit.SECONDS)
     }
 
-    private fun nextDueSeconds(): Long = synchronized(pending) {
-        pending.values.minOfOrNull { it.first }?.let { ((it - System.currentTimeMillis()) / 1000).coerceIn(1, 600) } ?: 600
-    }
+    private fun nextDueSeconds(): Long =
+        pending.nextDueAt()?.let { ((it - System.currentTimeMillis()) / 1000).coerceIn(1, 600) } ?: 600
 
     /** Shows alerts whose delay has passed (dropping your team's while you're watching in TiviMate). */
-    private fun flush() {
+    private fun flush(generation: Long) {
         val now = System.currentTimeMillis()
-        val ready = synchronized(pending) {
-            pending.entries.filter { it.value.first <= now }.map { it.key to it.value.second }.also { r -> r.forEach { pending.remove(it.first) } }
-        }
         val watchApp = context.getSharedPreferences("veil", Context.MODE_PRIVATE).getString("watch_with", "ar.tvplayer.tv")
-        ready.forEach { (gameId, a) ->
+        pending.takeDue(now).forEach { a ->
+            val gameId = a.gameId
             if (a.favorite && foreground() == watchApp) return@forEach
             if (now - (lastShownAt[gameId] ?: 0L) < 3 * 60_000L) return@forEach
             lastShownAt[gameId] = now
-            main.post { runCatching { show(a) } }
+            main.post {
+                if (pending.canDeliver(generation, Settings.mode(context) != Settings.OFF)) runCatching { show(a) }
+            }
         }
     }
+}
+
+/** A disable invalidates polls in flight and callbacks already posted to the main thread. */
+internal class PendingScoreAlerts {
+    private val byGame = HashMap<String, Pair<Long, ScoreAlerts.Alert>>()
+    @Volatile var generation = 0L
+        private set
+
+    @Synchronized fun clear() {
+        generation++
+        byGame.clear()
+    }
+
+    @Synchronized fun enqueue(pollGeneration: Long, due: Long, alerts: List<ScoreAlerts.Alert>) {
+        if (pollGeneration == generation) alerts.forEach { byGame[it.gameId] = due to it }
+    }
+
+    @Synchronized fun nextDueAt(): Long? = byGame.values.minOfOrNull { it.first }
+
+    @Synchronized fun takeDue(now: Long): List<ScoreAlerts.Alert> {
+        val ready = byGame.values.filter { it.first <= now }.map { it.second }
+        ready.forEach { byGame.remove(it.gameId) }
+        return ready
+    }
+
+    fun canDeliver(pollGeneration: Long, enabled: Boolean) = enabled && pollGeneration == generation
 }
