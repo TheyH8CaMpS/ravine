@@ -198,7 +198,7 @@ private fun VeilPanel(state: LauncherState) {
 
             // A newer Ravine is out: one line at the top until it's installed.
             state.updates.release?.let { u ->
-                IndexRow("Update ready", state.updates.status ?: "Build ${u.build}", arrow = true, onClick = state.updates::install)
+                IndexRow("Update ready", state.updates.status ?: u.label, arrow = true, onClick = state.updates::install)
                 Spacer(Modifier.height(4.dp))
             }
 
@@ -246,7 +246,7 @@ private fun VeilPanel(state: LauncherState) {
             }
             IndexRow(
                 "Check for updates",
-                state.updates.status ?: state.updates.release?.let { "Build ${it.build} ready" } ?: "Build ${dev.veil.launcher.data.Updates.currentBuild(dev.veil.launcher.BuildConfig.VERSION_CODE)}",
+                state.updates.status ?: state.updates.release?.let { "${it.label} ready" } ?: "Build ${dev.veil.launcher.data.Updates.currentBuild(dev.veil.launcher.BuildConfig.VERSION_CODE)}",
                 onClick = state.updates::checkNow,
             )
             IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)

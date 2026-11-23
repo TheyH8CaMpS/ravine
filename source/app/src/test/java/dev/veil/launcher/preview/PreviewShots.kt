@@ -22,6 +22,7 @@ import coil.request.ImageResult
 import coil.request.SuccessResult
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.AppEntry
+import dev.veil.launcher.data.Updates
 import dev.veil.launcher.data.WatchItem
 import dev.veil.launcher.ui.VeilApp
 import dev.veil.launcher.ui.VeilTheme
@@ -213,7 +214,7 @@ class PreviewShots {
     }
 
     @Test fun menuUpdate() = shoot("menu-update", newState()) { s ->
-        s.updates.release = dev.veil.launcher.data.Updates.Release(20, "Ravine 0.1.0 (build 20)", "https://example.invalid/ravine.apk")
+        s.updates.release = Updates.Release(Updates.Version(0, 1, 0, 20), "https://example.invalid/ravine.apk")
         s.veilMenuOpen = true
     }
 

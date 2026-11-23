@@ -153,7 +153,7 @@ class UpdateState(
     val currentLabel: String = "Ravine ${BuildConfig.VERSION_NAME} · build ${Updates.currentBuild(BuildConfig.VERSION_CODE)}"
 
     private var downloaded: java.io.File? = null
-    private var downloadedBuild = -1
+    private var downloadedVersion: Updates.Version? = null
 
     /** A newer Ravine release, if any (checked every 2 hours). */
     var release by mutableStateOf<Updates.Release?>(null)
@@ -166,11 +166,11 @@ class UpdateState(
         if (now - lastCheck < 2 * 60 * 60_000L) return
         lastCheck = now
         scope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_CODE) }.getOrNull() }
+            val r = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE) }.getOrNull() }
             release = r
-            if (r != null && automatic && downloadedBuild != r.build) {
+            if (r != null && automatic && downloadedVersion != r.version) {
                 val apk = withContext(Dispatchers.IO) { runCatching { Updates.download(context, r) }.getOrNull() }
-                if (apk != null) { downloaded = apk; downloadedBuild = r.build }
+                if (apk != null) { downloaded = apk; downloadedVersion = r.version }
             }
         }
     }
@@ -181,10 +181,13 @@ class UpdateState(
      */
     fun onHome() {
         val apk = downloaded ?: return
-        if (!automatic || prefs.getInt("prompted_build", -1) == downloadedBuild) return
+        val version = downloadedVersion ?: return
+        val prompted = prefs.getString("prompted_release", null)
+        if (!automatic || prompted == version.toString()) return
+        if (prompted == null && prefs.getInt("prompted_build", -1) == version.build) return
         // Silent check: never jump to Settings just because Home came up; "Update ready" handles the permission.
         if (android.os.Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) return
-        prefs.edit().putInt("prompted_build", downloadedBuild).apply()
+        prefs.edit().putString("prompted_release", version.toString()).apply()
         runCatching { Updates.install(context, apk) }
     }
 
@@ -197,7 +200,7 @@ class UpdateState(
         status = "Checking…"
         lastCheck = System.currentTimeMillis()
         scope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_CODE) } }
+            val r = withContext(Dispatchers.IO) { runCatching { Updates.check(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE) } }
             status = null
             when {
                 r.isFailure -> status = "Couldn't reach GitHub · try again"

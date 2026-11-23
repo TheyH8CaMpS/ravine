@@ -1,8 +1,11 @@
 package dev.veil.launcher.data
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.OffsetDateTime
 
@@ -29,13 +32,37 @@ class ShowsAndUpdatesTest {
         assertEquals("11-18-26 · Brandon Is Sick And Tired Of Being Ignored In The Yak Group Chat", item.episodeLine)
     }
 
-    @Test fun releaseBuildNumbers() {
-        assertEquals(20, Updates.buildOf("v0.1.0-build20"))
-        assertNull(Updates.buildOf("v0.1.0"))
-        assertEquals(19, Updates.currentBuild(119))
-        val r = Updates.parse(JSONObject("""{"tag_name":"v0.1.0-build20","name":"Ravine 0.1.0 (build 20)",
-            "assets":[{"name":"ravine.apk","browser_download_url":"https://github.com/TheyH8CaMpS/ravine/releases/download/v0.1.0-build20/ravine.apk"}]}"""))!!
-        assertEquals(20, r.build)
+    private fun release(tag: String, name: String = "") = JSONObject()
+        .put("tag_name", tag).put("name", name)
+        .put("assets", JSONArray().put(JSONObject()
+            .put("name", "ravine.apk").put("browser_download_url", "https://example.invalid/ravine.apk")))
+
+    @Test fun plainVersionReleaseIsRecognized() {
+        val latest = Updates.parse(release("v0.1.1", "Ravine 0.1.1 (build 53)"))!!
+        assertTrue(latest.isNewerThan("0.1.0", 147))
+        assertTrue(latest.isNewerThan("0.1.1", 152))
+        assertFalse(latest.isNewerThan("0.1.1", 153))
+        assertFalse(latest.isNewerThan("0.1.1", 154))
+        assertEquals("Build 53", latest.label)
+    }
+
+    @Test fun buildTagsCompareVersionFirstThenBuild() {
+        val latest = Updates.parse(release("v0.10.0-build20", "Ravine 0.10.0 (build 99)"))!!
+        assertTrue(latest.isNewerThan("0.9.9", 199))
+        assertTrue(latest.isNewerThan("0.10.0", 119))
+        assertFalse(latest.isNewerThan("0.10.0", 120))
+        assertFalse(latest.isNewerThan("0.10.1", 101))
+    }
+
+    @Test fun plainTagWithoutBuildStillUpdatesAnOlderVersion() {
+        val latest = Updates.parse(release("v1.0.0"))!!
+        assertTrue(latest.isNewerThan("0.12.9", 199))
+        assertFalse(latest.isNewerThan("1.0.0", 147))
+        assertEquals("v1.0.0", latest.label)
+    }
+
+    @Test fun updateRequiresAValidTagAndApk() {
+        assertNull(Updates.parse(release("v0.1.1-beta-build54")))
         assertNull(Updates.parse(JSONObject("""{"tag_name":"v0.1.0-build20","assets":[]}""")))
     }
 }
