@@ -13,34 +13,57 @@ import java.net.URL
 
 /**
  * "Update ready" in the menu (PROJECT.md D33): checks Ravine's latest GitHub Release (public, no key) and, on
- * request, downloads ravine.apk and hands it to Android's installer. Builds are numbered by CI
- * (tag v0.1.0-build20, versionCode 100 + 20), so a higher build number is an update.
+ * request, downloads ravine.apk and hands it to Android's installer.
  */
 object Updates {
-    data class Release(val build: Int, val name: String, val apkUrl: String)
+    data class Version(val major: Int, val minor: Int, val patch: Int, val build: Int? = null) : Comparable<Version> {
+        override fun compareTo(other: Version): Int =
+            compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch }, { it.build ?: 0 })
+
+        override fun toString(): String = "v$major.$minor.$patch" + (build?.let { "-build$it" } ?: "")
+    }
+
+    data class Release(val version: Version, val apkUrl: String) {
+        val label: String get() = version.build?.let { "Build $it" } ?: version.toString()
+
+        fun isNewerThan(versionName: String, versionCode: Int): Boolean {
+            val installed = versionOf("v$versionName", currentBuild(versionCode)) ?: return false
+            return version > installed
+        }
+    }
 
     private const val LATEST = "https://api.github.com/repos/TheyH8CaMpS/ravine/releases/latest"
 
-    /** The build number in a CI tag ("v0.1.0-build20" → 20), or null. */
-    fun buildOf(tag: String): Int? = Regex("""build(\d+)$""").find(tag)?.groupValues?.get(1)?.toIntOrNull()
+    private val tagPattern = Regex("""v(\d+)\.(\d+)\.(\d+)(?:-build(\d+))?""")
+    private val titleBuild = Regex("""\(build (\d+)\)$""")
+
+    private fun versionOf(tag: String, defaultBuild: Int?): Version? {
+        val (major, minor, patch, build) = tagPattern.matchEntire(tag)?.destructured ?: return null
+        return Version(
+            major.toIntOrNull() ?: return null, minor.toIntOrNull() ?: return null, patch.toIntOrNull() ?: return null,
+            if (build.isEmpty()) defaultBuild else build.toIntOrNull() ?: return null,
+        )
+    }
 
     /** This install's build number (versionCode = 100 + CI run number; local builds are 100). */
     fun currentBuild(versionCode: Int): Int = (versionCode - 100).coerceAtLeast(0)
 
     fun parse(json: JSONObject): Release? {
-        val build = buildOf(json.optString("tag_name")) ?: return null
+        // Tag pushes can omit the build suffix. CI still includes the run number in the title.
+        val build = titleBuild.find(json.optString("name"))?.groupValues?.get(1)?.toIntOrNull()
+        val version = versionOf(json.optString("tag_name"), build) ?: return null
         val assets = json.optJSONArray("assets") ?: return null
         val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
             .firstOrNull { it.optString("name") == "ravine.apk" }?.str("browser_download_url") ?: return null
-        return Release(build, json.optString("name"), apk)
+        return Release(version, apk)
     }
 
-    /** The latest release if it's newer than [versionCode]. Network: call off the main thread. */
-    fun check(versionCode: Int): Release? {
+    /** The latest release if it's newer than this install. Network: call off the main thread. */
+    fun check(versionName: String, versionCode: Int): Release? {
         val (code, text) = Http.call("GET", LATEST, mapOf("Accept" to "application/vnd.github+json"))
         // A failed check is an error, not "up to date" (Check for updates says which).
         if (code != 200) error("GitHub answered $code")
-        return parse(JSONObject(text))?.takeIf { it.build > currentBuild(versionCode) }
+        return parse(JSONObject(text))?.takeIf { it.isNewerThan(versionName, versionCode) }
     }
 
     /** True if Android lets Ravine open the installer; otherwise sends the owner to the one-time permission. */
