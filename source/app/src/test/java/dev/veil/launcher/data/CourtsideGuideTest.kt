@@ -17,6 +17,9 @@ class CourtsideGuideTest {
         ]}""",
     )
 
+    @Test fun sendsOnlyTheTvToken() =
+        assertEquals(mapOf("Authorization" to "Bearer tv-123"), CourtsideGuide.requestHeaders("tv-123"))
+
     @Test fun picksTopChannelForTheEvent() = assertEquals("512 · Spectrum SportsNet LA", CourtsideGuide.bestChannel(body, "401"))
 
     @Test fun noChannelsOrOtherEvent() {
