@@ -14,7 +14,6 @@ import java.util.Properties
  *   /sdcard/Android/data/app.ravine.launcher/files/courtside.properties
  *     COURTSIDE_URL=https://…              (Courtside's private address)
  *     COURTSIDE_TV_TOKEN=…                 (Courtside's TV endpoint token)
- *     COURTSIDE_SITES_BYPASS_TOKEN=…       (optional; only while Courtside was on OpenAI Sites)
  * Ravine copies it into private app storage and deletes the file. Anything missing or failing → ESPN's name.
  */
 object CourtsideGuide {
@@ -38,7 +37,6 @@ object CourtsideGuide {
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                     .putString("url", url)
                     .putString("tv", props.getProperty("COURTSIDE_TV_TOKEN", "").trim())
-                    .putString("bypass", props.getProperty("COURTSIDE_SITES_BYPASS_TOKEN", "").trim())
                     .apply()
             }
         }
@@ -68,10 +66,7 @@ object CourtsideGuide {
     fun get(context: Context, path: String): String? {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val url = p.getString("url", null) ?: return null
-        val headers = buildMap {
-            put("Authorization", "Bearer " + p.getString("tv", ""))
-            p.getString("bypass", null)?.takeIf { it.isNotBlank() }?.let { put("OAI-Sites-Authorization", "Bearer $it") }
-        }
+        val headers = mapOf("Authorization" to "Bearer " + p.getString("tv", ""))
         val (code, text) = Http.call("GET", url + path, headers)
         return if (code == 200) text else null
     }

@@ -1,6 +1,8 @@
 # API keys and machine paths: never commit these
 keys.properties
 local.properties
+courtside.properties
+yak.properties
 
 # Files the install agent creates for your TV (backup + undo script)
 veil-backup.txt

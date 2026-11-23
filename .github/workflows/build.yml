@@ -13,16 +13,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.name }}
     defaults:
       run:
         working-directory: source
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify private configuration files are ignored
+        working-directory: .
+        run: |
+          git check-ignore -q -- courtside.properties
+          git check-ignore -q -- yak.properties
 
       - uses: actions/setup-java@v5
         with:
@@ -32,6 +40,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Write keys.properties from secrets
+        if: github.event_name != 'pull_request'
         env:
           TMDB_KEY: ${{ secrets.TMDB_KEY }}
           SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
@@ -45,6 +54,7 @@ jobs:
           if [ -z "${TMDB_KEY}" ]; then echo "::warning::TMDB_KEY secret is not set: artwork will be missing."; fi
 
       - name: Restore release signing key
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_B64: ${{ secrets.RAVINE_KEYSTORE_BASE64 }}
         run: |
@@ -57,7 +67,7 @@ jobs:
 
       - name: Build and test
         env:
-          RAVINE_KEYSTORE_PASSWORD: ${{ secrets.RAVINE_KEYSTORE_PASSWORD }}
+          RAVINE_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.RAVINE_KEYSTORE_PASSWORD || '' }}
           # Every CI build gets a higher versionCode, so Android always treats it as an update.
           RAVINE_BUILD_NUMBER: ${{ github.run_number }}
         run: ./gradlew --no-daemon assembleRelease testReleaseUnitTest
@@ -74,14 +84,25 @@ jobs:
         id: version
         run: echo "name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
 
+  release:
+    needs: build
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: ravine-apk
+          path: source
+
       - name: Publish release
-        if: >-
-          startsWith(github.ref, 'refs/tags/v') ||
-          (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', steps.version.outputs.name, github.run_number) }}
-          name: Ravine ${{ steps.version.outputs.name }} (build ${{ github.run_number }})
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', needs.build.outputs.version, github.run_number) }}
+          name: Ravine ${{ needs.build.outputs.version }} (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           files: source/ravine.apk
           generate_release_notes: true

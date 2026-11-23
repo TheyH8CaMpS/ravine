@@ -11,9 +11,8 @@ channels in the owner's provider guide, and in-app playback through a relay and 
   (TiviMate by default) and never routes playback through Courtside. Courtside's streaming path (relay or
   home-PC gateway) has been intermittent; TiviMate's has been reliable.
 - **No Courtside APK.** Courtside is built for phones. Wrapping it for the TV (a WebView/TWA) would bring
-  its least reliable part, playback, to the Shield. At the time, its Sites sign-in was also awkward with a remote.
-- **Scores stay on ESPN, read directly by Ravine.** Courtside uses the same ESPN data, so going through
-  Courtside adds a hop and a dependency without adding information.
+  its least reliable part, playback, to the Shield.
+- **The game strip reads scores directly from ESPN.** The separate Scores panel uses Courtside's TV routes (D49).
 - The `courtside://` deep link from the first game-day build was removed.
 
 ## Built: provider channel names (2026-11-18, D30)
@@ -38,13 +37,10 @@ Gotcha: Windows Notepad saves `courtside.properties.txt` and hides the `.txt`. P
 the menu shows "Channel names from Courtside". Still to confirm with a real game: the strip showing the
 provider channel instead of ESPN's name.
 
-**Moved (2026-11-22):** Courtside left OpenAI Sites for its own Cloudflare Worker behind the owner's sign-in
-(courtside#211). Two changes keep Ravine connected:
-1. Courtside lets its four `/api/tv/*` routes past the sign-in gate; they still check `COURTSIDE_TV_TOKEN`
-   themselves (courtside#220). The token is now a secret on the Worker instead of in Sites.
-2. A new `courtside.properties` on the Shield with the new address: `COURTSIDE_URL=` and `COURTSIDE_TV_TOKEN=`
-   only. The Sites bypass line is no longer needed; without it Ravine sends no bypass header. Ravine's code
-   didn't change.
+**Moved on 2026-11-22.** Courtside left OpenAI Sites for its own Cloudflare Worker behind the owner's sign-in
+(courtside#211). Its four TV routes (`/api/tv/games`, `/api/tv/scores`, `/api/tv/game` and `/api/tv/standings`)
+authenticate the Shield using the `COURTSIDE_TV_TOKEN` Worker secret (courtside#220). Ravine reads the Worker
+address and TV token from private app storage and sends the token in the HTTP `Authorization` header as a bearer token.
 
 To rotate: update the Worker secret and push a matching file. To remove: clear Ravine's data, or unset the Worker secret (Ravine then quietly falls
 back to ESPN's network name).
@@ -65,10 +61,8 @@ merge and deploy separately):
 1. A read-only endpoint, e.g. `GET /api/tv/games?teams=dodgers,lakers,raiders&date=YYYY-MM-DD`, that returns
    for each game: ESPN event id, start time, and the best matched channel (`name`, `number` if known,
    `confidence`). **No stream URLs, tickets or provider URLs**, ever.
-2. Its own authentication: Sites identity headers only work in a browser session, so the TV needs a bearer
-   token. The token lives in 1Password (`op://Dev/Courtside/...`), in Sites runtime settings for Courtside,
-   and as a GitHub Actions secret (`COURTSIDE_TV_TOKEN`) for Ravine's build. Courtside's AGENTS.md already
-   requires "a standalone service must do its own authentication".
+2. The TV endpoint authenticates with its own bearer token. D30 records the setup that shipped, including
+   how the owner provisions the Shield over ADB after installing the APK.
 3. Ravine adds `CourtsideGuide` next to `EspnSource`: it only fills in the channel. If Courtside is down or
    slow, Ravine silently keeps ESPN's broadcast name: Ravine never depends on Courtside to work.
 
