@@ -36,6 +36,8 @@ class NowPlaying(private val context: Context) {
         val positionMs: Long = 0,
         val positionAt: Long = 0,
         val speed: Float = 1f,
+        /** Longest side of the artwork's source in px (0 = unknown). Small covers aren't drawn above 2x (ravine#11). */
+        val artPx: Int = 0,
     ) {
         /** Current position, extrapolated while playing. */
         fun positionNow(): Long {
@@ -51,8 +53,11 @@ class NowPlaying(private val context: Context) {
     private val component = ComponentName(context, MediaListener::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private var controllers: List<MediaController> = emptyList()
-    /** Art for the current song: (song key, small, large). Only ever holds real artwork. */
-    private var artCache: Triple<String, ImageBitmap, ImageBitmap>? = null
+    /** Art for the current song. Only ever holds real artwork. */
+    private class Art(val key: String, val small: ImageBitmap, val large: ImageBitmap, val px: Int)
+    private var artCache: Art? = null
+    /** Song whose art URI failed to load, so it isn't retried on every metadata change. */
+    private var artUriFailed: String? = null
     /** Song whose artwork hasn't arrived yet, and since when. */
     private var missingArtKey: String? = null
     private var missingArtSince = 0L
@@ -138,57 +143,69 @@ class NowPlaying(private val context: Context) {
         val artKey = "${c.packageName}|$title|$artist"
         var small: ImageBitmap? = null
         var large: ImageBitmap? = null
-        val cached = artCache?.takeIf { it.first == artKey }
+        var artPx = 0
+        val cached = artCache?.takeIf { it.key == artKey }
         if (cached != null) {
-            small = cached.second; large = cached.third
+            small = cached.small; large = cached.large; artPx = cached.px
         } else {
             val bmp: Bitmap? = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+            // The session's art URI is usually full size, where the bitmap is often a thumbnail (ravine#11).
+            val uri = if (artUriFailed == artKey) null else CoverArt.artUri(md)
+            val source = CoverArt.choose(uri, bmp != null)
             fun scaled(b: Bitmap, size: Int): ImageBitmap? {
                 val s = minOf(size, maxOf(b.width, b.height))
                 return runCatching { Bitmap.createScaledBitmap(b, s, s, true).asImageBitmap() }.getOrNull()
             }
-            when {
-                bmp != null && track != null -> {
-                    // Resize on the worker; until it's done (a few ms) keep the current cover, as in the
-                    // "artwork arrives a moment later" case below. (The very first song is resized right away.)
-                    if (artPending != artKey) {
-                        artPending = artKey
-                        artWorker.execute {
-                            val s96 = scaled(bmp, 96); val s640 = scaled(bmp, 640)
-                            handler.post {
-                                if (artPending == artKey) artPending = null
-                                if (s96 != null && s640 != null) {
-                                    artCache = Triple(artKey, s96, s640)
-                                    missingArtKey = null
-                                    handler.removeCallbacks(recheck)
-                                }
-                                if (controllers.isNotEmpty()) recompute() // not after stop()
+            // A URI is always loaded on the worker (it may be a download); a bitmap is too, except for the very first song.
+            val async = source == CoverArt.Source.URI || (source == CoverArt.Source.BITMAP && track != null)
+            if (async) {
+                // Until it's done keep the current cover, as in the "artwork arrives a moment later" case below.
+                if (artPending != artKey) {
+                    artPending = artKey
+                    artWorker.execute {
+                        val loaded = uri?.let { CoverArt.load(context, it) }
+                        val b = loaded ?: bmp // the URI failed: fall back to the bitmap
+                        val s96 = b?.let { scaled(it, 96) }; val s640 = b?.let { scaled(it, CoverArt.MAX_PX) }
+                        val px = b?.let { maxOf(it.width, it.height) } ?: 0
+                        handler.post {
+                            if (artPending == artKey) artPending = null
+                            if (uri != null && loaded == null) artUriFailed = artKey
+                            if (s96 != null && s640 != null) {
+                                artCache = Art(artKey, s96, s640, px)
+                                missingArtKey = null
+                                handler.removeCallbacks(recheck)
                             }
+                            if (controllers.isNotEmpty()) recompute() // not after stop()
                         }
                     }
-                    small = track?.art; large = track?.artLarge
                 }
-                bmp != null -> {
-                    small = scaled(bmp, 96); large = scaled(bmp, 640)
+                if (track == null && bmp != null) {
+                    // First song: show the bitmap now; the URI's cover replaces it when it arrives.
+                    small = scaled(bmp, 96); large = scaled(bmp, CoverArt.MAX_PX); artPx = maxOf(bmp.width, bmp.height)
+                } else {
+                    small = track?.art; large = track?.artLarge; artPx = track?.artPx ?: 0
+                }
+            } else if (bmp != null) {
+                small = scaled(bmp, 96); large = scaled(bmp, CoverArt.MAX_PX); artPx = maxOf(bmp.width, bmp.height)
+                if (small != null && large != null) {
+                    artCache = Art(artKey, small, large, artPx)
+                    missingArtKey = null
+                    handler.removeCallbacks(recheck)
                 }
             }
-            if (bmp != null && track != null) {
-                // Published below with the current cover; the resized one follows from the worker.
-            } else if (small != null && large != null) {
-                artCache = Triple(artKey, small, large)
-                missingArtKey = null
-                handler.removeCallbacks(recheck)
-            } else {
+            if (!async && (small == null || large == null)) {
                 // Players often send the new title first and the artwork a moment later. Keep the
                 // previous cover for up to 4 s instead of flashing a placeholder, then give up.
                 val now = System.currentTimeMillis()
                 if (missingArtKey != artKey) { missingArtKey = artKey; missingArtSince = now }
                 if (now - missingArtSince < 4_000) {
-                    small = track?.art; large = track?.artLarge
+                    small = track?.art; large = track?.artLarge; artPx = track?.artPx ?: 0
                     handler.removeCallbacks(recheck)
                     handler.postDelayed(recheck, 4_100)
+                } else {
+                    small = null; large = null; artPx = 0
                 }
             }
         }
@@ -205,6 +222,7 @@ class NowPlaying(private val context: Context) {
             positionMs = ps?.position ?: 0,
             positionAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 } ?: SystemClock.elapsedRealtime(),
             speed = ps?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
+            artPx = if (small != null) artPx else 0,
         )
     }
 
