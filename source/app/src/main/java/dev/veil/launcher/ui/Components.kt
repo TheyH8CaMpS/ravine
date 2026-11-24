@@ -631,12 +631,16 @@ private val MUTED = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
 fun AllAppsPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     DockItem("All apps", onClick, null, modifier) { focused ->
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(VeilIcons.Grid, contentDescription = null, modifier = Modifier.size(18.dp), tint = Veil.Text.copy(alpha = if (focused) 1f else 0.7f))
+            Icon(VeilIcons.Grid, contentDescription = null, modifier = Modifier.size(DOCK_GLYPH), tint = Veil.Text.copy(alpha = if (focused) 1f else 0.7f))
         }
     }
 }
 
-private val DOCK_ICON = 40.dp
+/** Dock sizes (PROJECT.md D56): icons ~18% smaller than the original 40 dp, item width narrowed to match. */
+internal val DOCK_ICON = 33.dp
+internal val DOCK_ITEM_WIDTH = 68.dp
+/** The All apps grid glyph, kept in proportion with the icons (was 18 dp at 40 dp). */
+internal val DOCK_GLYPH = 15.dp
 
 @Composable
 private fun DockItem(
@@ -663,7 +667,7 @@ private fun DockItem(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
     ) {
         Column(
-            Modifier.width(78.dp).padding(top = 6.dp, bottom = 2.dp),
+            Modifier.width(DOCK_ITEM_WIDTH).padding(top = 6.dp, bottom = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
