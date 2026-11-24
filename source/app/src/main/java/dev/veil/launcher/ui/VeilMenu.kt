@@ -2,28 +2,22 @@
 
 package dev.veil.launcher.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,19 +27,18 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
@@ -54,6 +47,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,7 +60,12 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import dev.veil.launcher.BuildConfig
 import dev.veil.launcher.LauncherState
+import dev.veil.launcher.alerts.AlertEngine
+import dev.veil.launcher.data.MyTeams
+import dev.veil.launcher.data.Updates
+import dev.veil.launcher.data.YakRewind
 import dev.veil.launcher.data.Weather
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -79,17 +78,22 @@ import kotlinx.coroutines.withContext
 @Composable
 fun VeilMenuAnchor(state: LauncherState) {
     var focused by remember { mutableStateOf(false) }
+    val anchor = remember { FocusRequester() }
     // Owner (D53): the menu opens only on OK, never just because focus passes over the wordmark. Leaving the
     // wordmark and its menu closes it.
-    LaunchedEffect(focused) { if (!focused) state.veilMenuOpen = false }
-    Box(Modifier.onFocusChanged { focused = it.hasFocus; state.wordmarkFocused = it.hasFocus }) {
+    LaunchedEffect(focused) {
+        if (!focused && !state.weatherPicker && !state.vizSettingsOpen && state.menuReturn == null) {
+            state.veilMenuOpen = false
+        }
+    }
+    Box(Modifier.onFocusChanged { focused = it.hasFocus; state.wordmarkFocused = it.hasFocus }.focusGroup()) {
         // Styled like the other top-bar pills (soft fill + outline + chevron) so it reads as a button.
         Surface(
             // OK opens/closes the menu (D45, D53: only OK opens it); Back closes it.
             onClick = { if (state.veilMenuOpen) { Sfx.back(); state.veilMenuOpen = false } else { Sfx.open(); state.veilMenuOpen = true } },
             // Back closes the menu from the "veil" button too (not only from inside the menu), by sending
             // focus back to the page, exactly like the panel's own Back handling.
-            modifier = Modifier.focusSound(1.12f).onPreviewKeyEvent { e ->
+            modifier = Modifier.focusRequester(anchor).focusSound(1.12f).onPreviewKeyEvent { e ->
                 if (e.key == Key.Back && e.type == KeyEventType.KeyUp) { Sfx.back(); state.focusHome(); true }
                 else e.key == Key.Back
             },
@@ -113,7 +117,7 @@ fun VeilMenuAnchor(state: LauncherState) {
         Box(Modifier.floatingBelow(40.dp)) {
             // Kept built while on Home (it was rebuilt from scratch on every open, which stuttered); while
             // closed it isn't placed on screen, so the remote can never move focus into it.
-            KeptPanel(open = state.veilMenuOpen) { VeilPanel(state) }
+            KeptPanel(open = state.veilMenuOpen) { VeilPanel(state, anchor) }
         }
     }
 }
@@ -146,126 +150,187 @@ private fun KeptPanel(open: Boolean, content: @Composable () -> Unit) {
     }
 }
 
-/**
- * Ravine's menu, laid out like the index of a field guide (PROJECT.md D21): a serif masthead with today's
- * date, four numbered sections, and one line per setting with its current value in small caps on the right.
- * OK cycles a value or opens the item. Everything about music lives in one row ("With music").
- */
+private enum class MenuSection(val title: String) {
+    Wallpaper("Wallpaper"), Ambient("Ambient"), Look("Look"), GameDay("Game day"),
+    Weather("Weather"), Visualizer("Visualizer"), Yak("Yak"), Updates("Updates"),
+}
+
+/** An overview that fits on one screen, with scrolling reserved for a section's settings. */
 @Composable
-private fun VeilPanel(state: LauncherState) {
+private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
+    var section by remember { mutableStateOf<MenuSection?>(null) }
+    var returnTo by remember { mutableStateOf<MenuSection?>(null) }
+    val first = remember { FocusRequester() }
+    val sectionBack = remember { FocusRequester() }
+    val sectionRows = remember { MenuSection.entries.associateWith { FocusRequester() } }
     val vizButton = remember { FocusRequester() }
     val weatherButton = remember { FocusRequester() }
-    val scroll = rememberScrollState()
-    LaunchedEffect(state.veilMenuOpen) { if (!state.veilMenuOpen) scroll.scrollTo(0) }
-    // After a window opened from this menu closes, put focus back on the row that opened it.
-    LaunchedEffect(state.menuReturn) {
-        val target = when (state.menuReturn) { "viz" -> vizButton; "weather" -> weatherButton; else -> null }
-        if (target != null) {
-            delay(80)
-            runCatching { target.requestFocus() }
-            state.menuReturn = null
+
+    LaunchedEffect(state.veilMenuOpen, section, returnTo) {
+        if (!state.veilMenuOpen) {
+            section = null
+            returnTo = null
+        } else {
+            withFrameNanos { }
+            val target = if (section != null) sectionBack else returnTo?.let(sectionRows::get) ?: first
+            target.requestFocus()
         }
     }
+    // After a window opened from this menu closes, return to its original setting.
+    LaunchedEffect(state.menuReturn) {
+        val target = when (state.menuReturn) {
+            "viz" -> if (section == MenuSection.Visualizer) vizButton else null
+            "weather" -> if (section == MenuSection.Weather) weatherButton else null
+            else -> null
+        }
+        if (target != null && state.veilMenuOpen) {
+            delay(80)
+            target.requestFocus()
+        }
+        state.menuReturn = null
+    }
+
+    fun back() {
+        Sfx.back()
+        if (section == null) {
+            state.veilMenuOpen = false
+            state.focusHome()
+        } else {
+            anchor.requestFocus()
+            returnTo = section
+            section = null
+        }
+    }
+
     val shape = RoundedCornerShape(10.dp)
     Box(
         Modifier
             .onPreviewKeyEvent { e ->
-                // Back closes the menu by sending focus back to the page.
-                if (e.key == Key.Back && e.type == KeyEventType.KeyUp) { Sfx.back(); state.focusHome(); true }
-                else e.key == Key.Back
+                if (e.key != Key.Back) false else {
+                    if (e.type == KeyEventType.KeyUp) back()
+                    true
+                }
             }
-            .width(400.dp).heightIn(max = 470.dp).clip(shape).background(Veil.Sheet).border(1.dp, Veil.Line, shape),
+            .width(434.dp).heightIn(max = 460.dp).clip(shape)
+            .background(Veil.Sheet).border(1.dp, Veil.Line, shape),
     ) {
         GrainLayer(state.walls.grainLevel, Modifier.matchParentSize())
-        Column(
-            Modifier.verticalScroll(scroll).padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            // Masthead: today's date like the top of a page (the wordmark above already says "Ravine").
-            val day = remember(state.minuteTick / 3_600_000) {
-                java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault()).format(java.util.Date())
+        val page = section
+        if (page == null) {
+            Column(
+                Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                val date = remember(state.minuteTick / 3_600_000) {
+                    java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.getDefault()).format(java.util.Date())
+                }
+                Text(date, fontFamily = Display, fontSize = 26.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val place = listOfNotNull(state.weatherPlace, state.weather?.let { "${it.tempC}°" })
+                if (place.isNotEmpty()) {
+                    Text(place.joinToString(" · "), fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.65f), maxLines = 1)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    QuickAction("Next photo", state.walls.current?.title?.takeIf(String::isNotBlank), Modifier.weight(1f).focusRequester(first), state.walls::next)
+                    QuickAction("Start Ambient now", null, Modifier.weight(1f), state::startAmbient)
+                    QuickAction("Score alerts", AlertEngine.Settings.label(state.alertMode), Modifier.weight(1f), state::cycleAlertMode)
+                }
+                Spacer(Modifier.height(6.dp))
+                MenuSection.entries.forEach { item ->
+                    IndexRow(item.title, sectionSummary(item, state), modifier = Modifier.focusRequester(sectionRows.getValue(item)), arrow = true) {
+                        // Keep focus in the wordmark/menu group while the old row leaves composition.
+                        anchor.requestFocus()
+                        section = item
+                    }
+                }
+                MenuFooter("${state.updates.currentLabel}  ·  Back to close")
             }
-            val date = remember(state.minuteTick / 3_600_000) {
-                java.text.SimpleDateFormat("MMMM d", java.util.Locale.getDefault()).format(java.util.Date())
+        } else {
+            key(page) {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(page.title, fontFamily = Display, fontSize = 28.sp)
+                    IndexRow("Back to sections", modifier = Modifier.focusRequester(sectionBack), onClick = ::back)
+                    Spacer(Modifier.height(4.dp))
+                    SectionSettings(page, state, weatherButton, vizButton)
+                }
             }
-            Text(day, fontFamily = Display, fontSize = 34.sp, lineHeight = 36.sp, letterSpacing = (-0.3).sp)
-            Text(
-                listOfNotNull(date, state.weatherPlace, state.weather?.let { "${it.tempC}°" }).joinToString("  ·  "),
-                fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.6f),
-            )
-            Spacer(Modifier.height(10.dp))
+        }
+    }
+}
 
-            // A newer Ravine is out: one line at the top until it's installed.
-            state.updates.release?.let { u ->
-                IndexRow("Update ready", state.updates.status ?: u.label, arrow = true, onClick = state.updates::install)
-                Spacer(Modifier.height(4.dp))
-            }
+private fun onOff(enabled: Boolean) = if (enabled) "On" else "Off"
 
-            Section("I", "Wallpaper")
-            val w = state.walls.current
-            IndexRow("Next photo", w?.title?.takeIf(String::isNotBlank) ?: "…", serifValue = true, onClick = state.walls::next)
+private fun ambientTime(state: LauncherState) =
+    if (state.ambientMinutes == 0) "Never" else "${state.ambientMinutes} min"
+
+private fun musicMode(state: LauncherState) = when (state.musicMode) {
+    "viz" -> "Visualizer"
+    "art" -> "Album art"
+    else -> "Lyrics"
+}
+
+private fun updateStatus(state: LauncherState) =
+    state.updates.status ?: state.updates.release?.let { "${it.label} ready" }
+        ?: "Build ${Updates.currentBuild(BuildConfig.VERSION_CODE)}"
+
+private fun sectionSummary(section: MenuSection, state: LauncherState) = when (section) {
+    MenuSection.Wallpaper -> "Every ${state.walls.rotateMinutes} min · ${PictureDepth.name(state.walls.pictureDepth)}"
+    MenuSection.Ambient -> "${ambientTime(state)} · ${musicMode(state)}"
+    MenuSection.Look -> ThemeState.current.name
+    MenuSection.GameDay -> MyTeams.all.filter { it.key in state.gameDay.teams }
+        .joinToString(", ") { it.name }.ifEmpty { "No teams selected" }
+    MenuSection.Weather -> state.weatherPlace ?: "Set place"
+    MenuSection.Visualizer -> when {
+        state.musicMode == "viz" -> "On with music"
+        state.visualizerAllowed -> "Off"
+        else -> "Unavailable"
+    }
+    MenuSection.Yak -> "Daily ${onOff(state.shows.followYak)} · Rewind ${state.yakRewind.schedule.label}"
+    MenuSection.Updates -> state.updates.release?.let { "Update ready" }
+        ?: if (state.updates.automatic) "Automatic" else "Ask"
+}
+
+@Composable
+private fun SectionSettings(
+    section: MenuSection,
+    state: LauncherState,
+    weatherButton: FocusRequester,
+    vizButton: FocusRequester,
+) {
+    when (section) {
+        MenuSection.Wallpaper -> {
             IndexRow("Change photo every", "${state.walls.rotateMinutes} min", onClick = state.walls::cycleRotateMinutes)
             IndexRow("Picture depth", PictureDepth.name(state.walls.pictureDepth), onClick = state.walls::cyclePictureDepth)
             IndexRow("Film grain", FilmGrain.name(state.walls.grainLevel), onClick = state.walls::cycleGrain)
             IndexRow("While music plays", MusicPoster.label(state.musicWallpaper), onClick = state::cycleMusicWallpaper)
-
-            Section("II", "Ambient")
-            IndexRow("Start Ambient now", arrow = true, onClick = state::startAmbient)
-            IndexRow(
-                "Starts after", if (state.ambientMinutes == 0) "Never" else "${state.ambientMinutes} min",
-                onClick = state::cycleAmbientMinutes,
-            )
-            IndexRow(
-                "With music",
-                when (state.musicMode) { "viz" -> "Visualizer"; "art" -> "Album art"; else -> "Lyrics" },
-                onClick = state::cycleMusicMode,
-            )
-            if (state.musicMode == "viz") {
-                IndexRow(
-                    "Visualizer settings", arrow = true, modifier = Modifier.focusRequester(vizButton),
-                    onClick = { state.vizSettingsOpen = true },
-                )
-            } else if (!state.visualizerAllowed) {
-                Note(if (!state.visualizerSupported) "The visualizer isn't supported on this TV." else "The visualizer needs audio access (granted over ADB).")
-            }
-
-            Section("III", "Look")
+        }
+        MenuSection.Ambient -> {
+            IndexRow("Starts after", ambientTime(state), onClick = state::cycleAmbientMinutes)
+            IndexRow("With music", musicMode(state), onClick = state::cycleMusicMode)
+        }
+        MenuSection.Look -> {
             IndexRow("Theme", ThemeState.current.name, swatch = ThemeState.current.accent, onClick = state::cycleTheme)
-            IndexRow("Colours from the photo", if (state.artColors) "On" else "Off", onClick = state::toggleArtColors)
-
-            Section("IV", "Home")
-            IndexRow(
-                "Weather", state.weatherPlace ?: "Set place", modifier = Modifier.focusRequester(weatherButton),
-                onClick = { state.weatherPicker = true },
-            )
-            IndexRow("The Yak daily", if (state.shows.followYak) "On" else "Off", onClick = state.shows::toggleFollowYak)
-            IndexRow("Yak rewind", state.yakRewind.schedule.label, onClick = state.yakRewind::cycleSchedule)
-            if (state.yakRewind.schedule != dev.veil.launcher.data.YakRewind.Schedule.OFF && !state.yakRewind.configured) {
-                Note("Push yak.properties over ADB to connect yak.campsapps.com.")
-            }
-            IndexRow(
-                "Check for updates",
-                state.updates.status ?: state.updates.release?.let { "${it.label} ready" } ?: "Build ${dev.veil.launcher.data.Updates.currentBuild(dev.veil.launcher.BuildConfig.VERSION_CODE)}",
-                onClick = state.updates::checkNow,
-            )
-            IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)
+            IndexRow("Colours from the photo", onOff(state.artColors), onClick = state::toggleArtColors)
             IndexRow("Netflix button", state.remote.label, onClick = state.remote::cycle)
             if (state.remote.learning) Note("Press the Netflix button on the remote once so Ravine can learn it.")
             else if (state.remote.missed) Note("Ravine didn't see the Netflix button. The Ravine Home-button service must be on (Accessibility).")
-            IndexRow("Interface sounds", if (state.sounds) "On" else "Off", onClick = state::toggleSounds)
-            IndexRow("Seasonal touches", if (state.seasonal) "On" else "Off", onClick = state::toggleSeasonal)
+            IndexRow("Interface sounds", onOff(state.sounds), onClick = state::toggleSounds)
+            IndexRow("Seasonal touches", onOff(state.seasonal), onClick = state::toggleSeasonal)
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
-
-            Section("V", "Game day")
-            dev.veil.launcher.data.MyTeams.all.forEach { t ->
-                IndexRow(t.name, if (t.key in state.gameDay.teams) "On" else "Off", swatch = Color(t.color)) { state.gameDay.toggleTeam(t.key) }
+        }
+        MenuSection.GameDay -> {
+            MyTeams.all.forEach { team ->
+                IndexRow(team.name, onOff(team.key in state.gameDay.teams), swatch = Color(team.color)) {
+                    state.gameDay.toggleTeam(team.key)
+                }
             }
-            IndexRow("Team wallpapers", if (state.gameDay.teamWallpapers) "On" else "Off", onClick = state.gameDay::toggleTeamWallpapers)
-            IndexRow("Team visualizer", if (state.gameDay.teamVisualizer) "On" else "Off", onClick = state.gameDay::toggleTeamVisualizer)
+            IndexRow("Team wallpapers", onOff(state.gameDay.teamWallpapers), onClick = state.gameDay::toggleTeamWallpapers)
+            IndexRow("Team visualizer", onOff(state.gameDay.teamVisualizer), onClick = state.gameDay::toggleTeamVisualizer)
             IndexRow("Watch games in", state.gameDay.watchWithLabel, onClick = state.gameDay::cycleWatchWith)
-            IndexRow("Score alerts", dev.veil.launcher.alerts.AlertEngine.Settings.label(state.alertMode), onClick = state::cycleAlertMode)
-            if (state.alertMode != dev.veil.launcher.alerts.AlertEngine.Settings.OFF) {
+            if (state.alertMode != AlertEngine.Settings.OFF) {
                 IndexRow("Alert delay", if (state.alertDelay == 0) "None" else "${state.alertDelay} s", onClick = state::cycleAlertDelay)
                 Note("Alerts wait this long so IPTV catches up first. While ${state.gameDay.watchWithLabel} is open during your team's game, its alerts are skipped.")
             }
@@ -273,27 +338,68 @@ private fun VeilPanel(state: LauncherState) {
                 if (state.gameDay.courtsideChannels) "Channel names from Courtside, as in TiviMate's guide."
                 else "Channel names from ESPN. Courtside can supply your provider's channels (set up over ADB).",
             )
-
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "${state.updates.currentLabel}  ·  Back to close", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.4f),
-            )
+        }
+        MenuSection.Weather -> {
+            IndexRow("Weather", state.weatherPlace ?: "Set place", modifier = Modifier.focusRequester(weatherButton)) {
+                state.weatherPicker = true
+            }
+        }
+        MenuSection.Visualizer -> {
+            when {
+                state.musicMode == "viz" -> IndexRow(
+                    "Visualizer settings", arrow = true, modifier = Modifier.focusRequester(vizButton),
+                    onClick = { state.vizSettingsOpen = true },
+                )
+                !state.visualizerSupported -> Note("The visualizer isn't supported on this TV.")
+                !state.visualizerAllowed -> Note("The visualizer needs audio access (granted over ADB).")
+                else -> Note("Choose Visualizer under Ambient → With music to open its settings here.")
+            }
+        }
+        MenuSection.Yak -> {
+            IndexRow("The Yak daily", onOff(state.shows.followYak), onClick = state.shows::toggleFollowYak)
+            IndexRow("Yak rewind", state.yakRewind.schedule.label, onClick = state.yakRewind::cycleSchedule)
+            if (state.yakRewind.schedule != YakRewind.Schedule.OFF && !state.yakRewind.configured) {
+                Note("Push yak.properties over ADB to connect yak.campsapps.com.")
+            }
+        }
+        MenuSection.Updates -> {
+            state.updates.release?.let { release ->
+                IndexRow("Update ready", state.updates.status ?: release.label, arrow = true, onClick = state.updates::install)
+            }
+            IndexRow("Check for updates", updateStatus(state), onClick = state.updates::checkNow)
+            IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)
         }
     }
 }
 
-/** "I  WALLPAPER ————": a roman numeral in the serif, the name in small caps, then a hairline rule. */
 @Composable
-private fun Section(numeral: String, name: String) {
-    Row(Modifier.padding(top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(numeral, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp, color = Veil.Accent)
-        Spacer(Modifier.width(9.dp))
-        Text(name.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp, color = Veil.Text.copy(alpha = 0.6f))
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.weight(1f).height(1.dp).background(Veil.Line))
+private fun MenuFooter(text: String) = Text(
+    text, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 10.sp,
+    color = Veil.Text.copy(alpha = 0.55f), maxLines = 1,
+    modifier = Modifier.padding(top = 6.dp),
+)
+
+@Composable
+private fun QuickAction(label: String, value: String?, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        onClick = { Sfx.select(); onClick() },
+        modifier = modifier.focusSound(1.05f),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Veil.Glass, contentColor = Veil.Text,
+            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+    ) {
+        Column(Modifier.height(46.dp).padding(horizontal = 8.dp), verticalArrangement = Arrangement.Center) {
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (value != null) {
+                Text(value, fontSize = 9.sp, color = LocalContentColor.current.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
+
 
 @Composable
 private fun Note(text: String) = Text(
@@ -310,7 +416,6 @@ private fun IndexRow(
     label: String,
     value: String? = null,
     modifier: Modifier = Modifier,
-    serifValue: Boolean = false,
     arrow: Boolean = false,
     swatch: Color? = null,
     onClick: () -> Unit,
@@ -333,18 +438,16 @@ private fun IndexRow(
                 Spacer(Modifier.width(7.dp))
             }
             val valueColor = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Accent
-            when {
-                value != null && serifValue -> Text(
-                    value, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 13.sp,
-                    color = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Text.copy(alpha = 0.7f),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 190.dp),
-                )
-                value != null -> Text(
-                    value.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp,
-                    color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 190.dp),
+            if (value != null) {
+                Text(
+                    value.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp,
+                    color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp),
                 )
             }
-            if (arrow) Text("→", fontSize = 12.sp, color = valueColor)
+            if (arrow) {
+                Spacer(Modifier.width(8.dp))
+                Text("→", fontSize = 12.sp, color = valueColor)
+            }
         }
     }
 }
