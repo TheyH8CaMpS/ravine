@@ -32,8 +32,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -151,30 +149,32 @@ private fun Poster(track: NowPlaying.Track, pick: ArtistArt.Pick, pos: Long, pro
     Column(modifier.fillMaxWidth()) {
         lyric?.let {
             Text(
-                "“$it”", fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, lineHeight = 19.sp,
+                "“$it”", style = Type.Body, fontSize = 13.sp, lineHeight = 17.sp,
                 color = Veil.Text.copy(alpha = 0.8f), maxLines = 2, modifier = Modifier.widthIn(max = 360.dp).padding(bottom = 16.dp),
             )
         }
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Text("NOW PLAYING", fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, color = Veil.Accent)
+                Text("NOW PLAYING", style = Type.Eyebrow, color = Veil.Accent)
                 Text(
-                    track.title, fontFamily = Display, fontSize = 56.sp, lineHeight = 54.sp, maxLines = 2,
+                    // ravine#15: ~57% of the old 56 sp; at most 2 lines, then an ellipsis.
+                    track.title, style = Type.NowPlaying, maxLines = 2,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
                 )
                 track.artist?.let {
-                    Text(it, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 22.sp, color = Veil.Text.copy(alpha = 0.85f), maxLines = 1)
+                    Text(it, style = Type.Title, fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp))
                 }
             }
             // Details and a small cover, bottom right; larger when there's no artist photo behind.
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(horizontalAlignment = Alignment.End) {
                     track.album?.takeIf { it.isNotBlank() && it != track.title }?.let {
-                        Text(it.uppercase(), fontSize = 7.sp, letterSpacing = 1.2.sp, color = Veil.Text.copy(alpha = 0.6f), maxLines = 1,
+                        Text(it, style = Type.Body, fontSize = 9.sp, color = Veil.Muted, maxLines = 1,
                             overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp))
                     }
                     if (track.durationMs > 0) {
-                        Text("${clock(pos)} / ${clock(track.durationMs)}", fontSize = 7.sp, letterSpacing = 1.2.sp, color = Veil.Text.copy(alpha = 0.6f),
+                        Text("${clock(pos)} / ${clock(track.durationMs)}", style = Type.Body, fontSize = 9.sp, color = Veil.Muted,
                             modifier = Modifier.padding(top = 3.dp))
                     }
                 }
@@ -197,29 +197,28 @@ private fun Sleeve(track: NowPlaying.Track, appLabel: String?, pos: Long, progre
         }
         Spacer(Modifier.width(30.dp))
         Column(Modifier.weight(1f)) {
-            Text(listOfNotNull("NOW PLAYING", appLabel?.uppercase()).joinToString("  ·  "), fontSize = 7.sp, fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp, color = Veil.Accent)
-            Text(track.title, fontFamily = Display, fontSize = 44.sp, lineHeight = 44.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            Text(listOfNotNull("NOW PLAYING", appLabel?.uppercase()).joinToString("  ·  "), style = Type.Eyebrow, color = Veil.Accent)
+            Text(track.title, style = Type.NowPlaying, fontSize = 26.sp, lineHeight = 28.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp))
-            track.artist?.let { Text(it, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 20.sp, color = Veil.Text.copy(alpha = 0.85f), maxLines = 1) }
+            track.artist?.let { Text(it, style = Type.Title, fontSize = 13.sp, color = Veil.Text.copy(alpha = 0.85f), maxLines = 1, modifier = Modifier.padding(top = 2.dp)) }
             track.album?.takeIf { it.isNotBlank() && it != track.title }?.let {
-                Text("FROM “${it.uppercase()}”", fontSize = 7.sp, letterSpacing = 1.2.sp, color = Veil.Text.copy(alpha = 0.6f), maxLines = 1,
+                Text("From “$it”", style = Type.Body, fontSize = 9.sp, color = Veil.Muted, maxLines = 1,
                     modifier = Modifier.padding(top = 8.dp))
             }
             progress?.let {
                 Progress(it, Modifier.padding(top = 14.dp).width(300.dp))
                 Row(Modifier.width(300.dp).padding(top = 4.dp)) {
-                    Text(clock(pos), fontSize = 7.sp, color = Veil.Text.copy(alpha = 0.6f))
+                    Text(clock(pos), style = Type.Body, fontSize = 8.sp, color = Veil.Muted)
                     Spacer(Modifier.weight(1f))
-                    Text("−" + clock((track.durationMs - pos).coerceAtLeast(0)), fontSize = 7.sp, color = Veil.Text.copy(alpha = 0.6f))
+                    Text("−" + clock((track.durationMs - pos).coerceAtLeast(0)), style = Type.Body, fontSize = 8.sp, color = Veil.Muted)
                 }
             }
             line?.first?.let {
-                Text("“$it”", fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp, maxLines = 1,
+                Text("“$it”", style = Type.Body, fontSize = 13.sp, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 14.dp))
             }
             line?.second?.let {
-                Text(it, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.4f), maxLines = 1,
+                Text(it, style = Type.Body, fontSize = 11.sp, color = Veil.Text.copy(alpha = 0.4f), maxLines = 1,
                     overflow = TextOverflow.Ellipsis)
             }
         }

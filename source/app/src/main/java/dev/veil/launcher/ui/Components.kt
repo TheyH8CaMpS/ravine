@@ -179,7 +179,7 @@ fun Clock(fontSize: TextUnit = 24.sp) {
         }
     }
     // Ravine: the clock is set in the serif display face (it reads smaller than Manrope, hence 24 sp).
-    Text(time, fontSize = fontSize, fontFamily = Display, fontWeight = FontWeight.Normal, letterSpacing = 0.2.sp)
+    Text(time, style = Type.Display, fontSize = fontSize, letterSpacing = 0.2.sp)
 }
 
 /**
@@ -230,10 +230,10 @@ fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit)
             Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(Color(game.team.color)))
             Spacer(Modifier.width(9.dp))
             Column {
-                Text(title, fontFamily = Display, fontSize = 16.sp, lineHeight = 17.sp, maxLines = 1,
+                Text(title, style = Type.Title, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text(
-                    note.uppercase(), fontSize = 7.5.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+                    note, style = Type.Label, fontSize = 9.sp, lineHeight = 10.sp,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     color = if (focused) Veil.Ink.copy(alpha = 0.7f) else Veil.Accent,
                 )
@@ -242,7 +242,7 @@ fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit)
     }
 }
 
-/** "TONIGHT 7:00 PM", "TODAY 1:10 PM", "TOMORROW 4:25 PM", "STARTED". */
+/** "Tonight 7:00 PM", "Today 1:10 PM", "Tomorrow 4:25 PM", "Starting". */
 fun gameStartText(context: android.content.Context, startMs: Long, now: Long): String {
     if (startMs <= now) return "Starting"
     val zone = java.time.ZoneId.systemDefault()
@@ -361,8 +361,8 @@ private fun PrivacyPanel(state: LauncherState) {
                 Text("Encrypted DNS · DNS-over-TLS", fontSize = 8.5.sp, color = Veil.Text.copy(alpha = 0.6f))
             }
             Text(
-                if (on) "ACTIVE" else if (paused) "PAUSED" else "OFF",
-                fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+                if (on) "Active" else if (paused) "Paused" else "Off",
+                style = Type.Label, fontSize = 9.sp,
                 color = if (on) Veil.Ink else Veil.Text.copy(alpha = 0.75f),
                 modifier = Modifier.clip(RoundedCornerShape(50))
                     .background(if (on) Veil.Accent else Color.White.copy(alpha = 0.12f))
@@ -403,7 +403,7 @@ private fun PrivacyPanel(state: LauncherState) {
             }
             if (d.topBlocked.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("MOST BLOCKED · 24 H", fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Veil.Text.copy(alpha = 0.55f))
+                    Text("Most blocked · 24 h", style = Type.Label, fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.55f))
                     d.topBlocked.forEach { (label, count) ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(5.dp).clip(CircleShape).background(Veil.Accent))
@@ -424,7 +424,7 @@ private fun PrivacyPanel(state: LauncherState) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(Veil.Line))
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("THIS WEEK", fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Veil.Text.copy(alpha = 0.55f))
+                    Text("This week", style = Type.Label, fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.55f))
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(nf.format(w.blocked), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Veil.Accent)
                         Spacer(Modifier.width(5.dp))
@@ -686,7 +686,7 @@ private fun DockItem(
                     .background(if (focused || moving) Veil.Accent else Color.Transparent),
             )
             Text(
-                label, fontFamily = Display, fontSize = 11.sp, maxLines = 1,
+                label, style = Type.Label, fontSize = 9.sp, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 3.dp).graphicsLayer { alpha = if (focused || moving) 1f else 0f },
             )

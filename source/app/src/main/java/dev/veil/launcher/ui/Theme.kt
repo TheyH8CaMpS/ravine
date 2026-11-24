@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.ProvideTextStyle
@@ -84,6 +85,8 @@ object Veil {
     val Glass = Color.White.copy(alpha = 0.08f)
     val GlassStrong = Color.White.copy(alpha = 0.12f)
     val Line = Color.White.copy(alpha = 0.16f)
+    /** Secondary text: values, metadata and notes. */
+    val Muted = Text.copy(alpha = 0.6f)
 }
 
 private fun manrope(weight: Int) = Font(
@@ -94,11 +97,35 @@ private fun manrope(weight: Int) = Font(
 
 val Manrope = FontFamily(manrope(400), manrope(500), manrope(600), manrope(700), manrope(800))
 
-/** Ravine's editorial display face (clock, wallpaper titles). One weight; italic for captions. */
-val Display = FontFamily(
-    Font(R.font.instrument_serif, FontWeight.Normal),
-    Font(R.font.instrument_serif_italic, FontWeight.Normal, androidx.compose.ui.text.font.FontStyle.Italic),
-)
+/** Ravine's display face, Instrument Serif. Regular only: Ravine sets nothing in italics (ravine#15). */
+val Display = FontFamily(Font(R.font.instrument_serif, FontWeight.Normal))
+
+/**
+ * Ravine's type system (ravine#15): a few named styles instead of one-off fonts.
+ * - Manrope is the voice of the UI: titles, body text, labels and values.
+ * - Instrument Serif only for display moments: [Display] (the Ravine wordmark and the clock) and
+ *   [NowPlaying] (the Now Playing title).
+ * - No style is italic, and [Eyebrow] is the only all-caps style, used only for "Now playing".
+ * Sizes depend on the place, so call sites still pass `fontSize` where they need another size.
+ */
+object Type {
+    val Display = TextStyle(fontFamily = dev.veil.launcher.ui.Display, fontWeight = FontWeight.Normal)
+    /** The Now Playing title on Home and in Ambient: at most 2 lines, then an ellipsis. */
+    val NowPlaying = TextStyle(fontFamily = dev.veil.launcher.ui.Display, fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 34.sp)
+    val Title = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.SemiBold)
+    val Body = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.Normal)
+    /** Section and setting labels, in sentence case ("Wallpaper", not "WALLPAPER"). */
+    val Label = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.SemiBold)
+    /** Values beside a label ("10 min", "Deep", "Off"), in sentence case and [Veil.Muted]. */
+    val Value = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.Normal)
+    /** The one small all-caps style: only the "Now playing" eyebrow. */
+    val Eyebrow = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.Bold, fontSize = 7.sp, letterSpacing = 1.5.sp)
+
+    val all: Map<String, TextStyle> = mapOf(
+        "display" to Display, "nowPlaying" to NowPlaying, "title" to Title, "body" to Body,
+        "label" to Label, "value" to Value, "eyebrow" to Eyebrow,
+    )
+}
 
 @Composable
 fun VeilTheme(content: @Composable () -> Unit) {

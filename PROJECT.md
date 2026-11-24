@@ -33,8 +33,9 @@ They're out of scope.
 
 - Dark forest greens, earthy browns, charcoal and muted natural tones. Authentic photography, no AI imagery.
 - The **wallpaper is the main visual feature.** Show artwork appears only when a Continue Watching card has focus.
-- Editorial and vintage feel: a serif display face for the clock and titles alongside Manrope, magazine-style
-  photo captions ("Fog in the green valley · V2osk"), and subtle pre-rendered film grain.
+- Editorial and vintage feel: Manrope is the voice of the UI; the serif display face only for the wordmark, the
+  clock and the Now Playing title (D57). Magazine-style photo captions ("Fog in the green valley · V2osk"), and
+  subtle pre-rendered film grain.
 - Palette tokens (starting point, tuned on the real TV):
   `charcoal #121412` · `forest #1F2B22` · `moss #4A5D45` · `bark #6B5440` · `bone #E8E2D4` (text).
   The accent may be tinted from the current wallpaper, but stays within these earthy tones.
@@ -100,6 +101,7 @@ They're out of scope.
 | D54 | Yak rewind: an older (New York-era) Yak episode from yak.campsapps.com (repo TheyH8CaMpS/yak) leads Continue Watching on chosen days: menu IV "Yak rewind" Off / Weekends (default) / Fri night + weekends / Every night (weeknights from 5 PM). It waits while today's Yak card is still NEW. OK opens it in SmartTube; hold-OK: Play / Seen it / Another one (Remove = Another one). The pick is shared with the phone page and refreshed every 15 min. MediaListener also follows SmartTube's session (verified 2026-11-22: `org.smarttube.stable` publishes title + channel) and, past 60% of a title containing "yak", posts it to `/api/tv/played`; the server marks it seen only on an exact title match. Address + token pushed once as `yak.properties` (`YAK_URL`, `YAK_TV_TOKEN`), moved to private storage and deleted, like Courtside's. Verified on the Shield 2026-11-22 (build 47): card shown, key connected | Owner asked for a random older Yak on weekends and some weeknights, with a "Seen it" option; and to stop telling Claude what's been watched |
 | D55 | Now Playing cover: the session's art URI first (album art → art → display icon; `content://`, `android.resource://`, `https://`), loaded off the main thread at up to 640 px and cached per song; the session bitmap is the fallback. A cover under 300 px is never drawn above 2× its own size (shown smaller instead), and Home's Poster/Sleeve covers use the 640 px copy rather than the 96 px pill copy. The artwork URI is never logged | Spotify podcast covers were pixelated: the session bitmap is often a small thumbnail stretched over a large cover frame (ravine#11) |
 | D56 | Dock icons 33 dp (was 40) in 68 dp-wide items (was 78); the All apps glyph scales with them (15 dp, was 18). Focus lift and scale unchanged | Owner: dock icons a little too large on the TV (ravine#12) |
+| D57 | One type system (ravine#15), as named styles in `ui/Theme.kt` (`Type.Display`, `NowPlaying`, `Title`, `Body`, `Label`, `Value`, `Eyebrow`). Manrope for the UI; Instrument Serif only for the Ravine wordmark, the clock and the Now Playing title. No italics anywhere (the italic font is gone). Now Playing title about 57% of before (Home poster 56 → 32 sp, sleeve and Ambient 44 → 26 sp), at most 2 lines then an ellipsis. Labels in sentence case ("Wallpaper"), no Roman numerals; values in sentence case in the muted text colour. The only all-caps style is the "Now playing" eyebrow. Supersedes the serif and italic parts of D13, D20 (lyrics now Manrope), D21 (numerals, small-caps values), D39, D48, D50 (dock name) and D51 (italic artist). `TypeSystemTest` guards it | Owner, Nov 23, on the Shield: the Now Playing title was way too big and the mix of serif, italics, small caps and numerals didn't feel uniform |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

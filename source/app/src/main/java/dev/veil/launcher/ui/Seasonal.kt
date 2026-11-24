@@ -150,7 +150,7 @@ private fun Countdown(modifier: Modifier) {
         }
     }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("NEW YEAR IN", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
+        Text("New year in", style = Type.Label, fontSize = 12.sp, color = Veil.Accent)
         Text(
             "%d:%02d".format(left / 60, left % 60),
             fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp,

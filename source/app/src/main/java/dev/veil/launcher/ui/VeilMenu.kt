@@ -47,7 +47,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -106,7 +105,7 @@ fun VeilMenuAnchor(state: LauncherState) {
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         ) {
             Row(Modifier.padding(start = 12.dp, end = 10.dp, top = 2.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Ravine", fontFamily = Display, fontSize = 24.sp, letterSpacing = (-0.2).sp)
+                Text("Ravine", style = Type.Display, fontSize = 24.sp, letterSpacing = (-0.2).sp)
                 Spacer(Modifier.width(5.dp))
                 Icon(
                     VeilIcons.ChevronDown, contentDescription = "Menu", modifier = Modifier.size(11.dp),
@@ -224,10 +223,10 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
                 val date = remember(state.minuteTick / 3_600_000) {
                     java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.getDefault()).format(java.util.Date())
                 }
-                Text(date, fontFamily = Display, fontSize = 26.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(date, style = Type.Title, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val place = listOfNotNull(state.weatherPlace, state.weather?.let { "${it.tempC}°" })
                 if (place.isNotEmpty()) {
-                    Text(place.joinToString(" · "), fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.65f), maxLines = 1)
+                    Text(place.joinToString(" · "), style = Type.Body, fontSize = 10.sp, color = Veil.Muted, maxLines = 1)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -251,7 +250,7 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
                     Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(page.title, fontFamily = Display, fontSize = 28.sp)
+                    Text(page.title, style = Type.Title, fontSize = 22.sp)
                     IndexRow("Back to sections", modifier = Modifier.focusRequester(sectionBack), onClick = ::back)
                     Spacer(Modifier.height(4.dp))
                     SectionSettings(page, state, weatherButton, vizButton)
@@ -288,7 +287,7 @@ private fun sectionSummary(section: MenuSection, state: LauncherState) = when (s
         state.visualizerAllowed -> "Off"
         else -> "Unavailable"
     }
-    MenuSection.Yak -> "Daily ${onOff(state.shows.followYak)} · Rewind ${state.yakRewind.schedule.label}"
+    MenuSection.Yak -> "Daily ${onOff(state.shows.followYak).lowercase()} · rewind ${state.yakRewind.schedule.label.lowercase()}"
     MenuSection.Updates -> state.updates.release?.let { "Update ready" }
         ?: if (state.updates.automatic) "Automatic" else "Ask"
 }
@@ -374,7 +373,7 @@ private fun SectionSettings(
 
 @Composable
 private fun MenuFooter(text: String) = Text(
-    text, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 10.sp,
+    text, style = Type.Body, fontSize = 10.sp,
     color = Veil.Text.copy(alpha = 0.55f), maxLines = 1,
     modifier = Modifier.padding(top = 6.dp),
 )
@@ -392,9 +391,9 @@ private fun QuickAction(label: String, value: String?, modifier: Modifier, onCli
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Column(Modifier.height(46.dp).padding(horizontal = 8.dp), verticalArrangement = Arrangement.Center) {
-            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = Type.Label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (value != null) {
-                Text(value, fontSize = 9.sp, color = LocalContentColor.current.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(value, style = Type.Value, fontSize = 9.sp, color = LocalContentColor.current.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -403,13 +402,13 @@ private fun QuickAction(label: String, value: String?, modifier: Modifier, onCli
 
 @Composable
 private fun Note(text: String) = Text(
-    text, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 10.sp,
+    text, style = Type.Body, fontSize = 10.sp,
     color = Veil.Text.copy(alpha = 0.5f), modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
 )
 
 /**
- * One line of the index: the setting on the left, its value on the right (small caps in the accent colour,
- * or the photo title in serif italics). Focus fills the line in bone with dark text, like the dock.
+ * One line of the index: the setting on the left, its value on the right in sentence case and the muted
+ * text colour (ravine#15). Focus fills the line in bone with dark text, like the dock.
  */
 @Composable
 private fun IndexRow(
@@ -432,15 +431,15 @@ private fun IndexRow(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
+            Text(label, style = Type.Label, fontSize = 11.5.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
             if (swatch != null) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(swatch))
                 Spacer(Modifier.width(7.dp))
             }
-            val valueColor = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Accent
+            val valueColor = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Muted
             if (value != null) {
                 Text(
-                    value.uppercase(), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp,
+                    value, style = Type.Value, fontSize = 11.sp,
                     color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp),
                 )
             }

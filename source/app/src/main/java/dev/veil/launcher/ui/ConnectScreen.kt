@@ -53,7 +53,7 @@ fun ConnectScreen(state: LauncherState) {
     Column(Modifier.fillMaxSize().background(Veil.Bg).padding(start = 48.dp, end = 48.dp, top = 26.dp)) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("CONNECT TRAKT", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
+                Text("Connect Trakt", style = Type.Label, fontSize = 12.sp, color = Veil.Accent)
                 Spacer(Modifier.height(8.dp))
                 Text("Show what you're watching", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.9).sp)
                 Spacer(Modifier.height(22.dp))
