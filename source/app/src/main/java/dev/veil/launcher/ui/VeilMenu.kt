@@ -287,7 +287,7 @@ private fun sectionSummary(section: MenuSection, state: LauncherState) = when (s
         state.visualizerAllowed -> "Off"
         else -> "Unavailable"
     }
-    MenuSection.Yak -> "Daily ${onOff(state.shows.followYak)} · Rewind ${state.yakRewind.schedule.label}"
+    MenuSection.Yak -> "Daily ${onOff(state.shows.followYak).lowercase()} · rewind ${state.yakRewind.schedule.label.lowercase()}"
     MenuSection.Updates -> state.updates.release?.let { "Update ready" }
         ?: if (state.updates.automatic) "Automatic" else "Ask"
 }
