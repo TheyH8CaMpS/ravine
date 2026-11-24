@@ -352,8 +352,14 @@ internal fun LyricsWaiting(modifier: Modifier = Modifier) {
     }
 }
 
+/** [want], or smaller when the cover is a small thumbnail: never drawn above 2x its own size (ravine#11). */
 @Composable
-private fun Cover(track: NowPlaying.Track, size: androidx.compose.ui.unit.Dp, scale: androidx.compose.runtime.State<Float>) {
+internal fun coverSize(track: NowPlaying.Track, want: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    dev.veil.launcher.data.CoverArt.drawDp(want.value, track.artPx, androidx.compose.ui.platform.LocalDensity.current.density).dp
+
+@Composable
+private fun Cover(track: NowPlaying.Track, want: androidx.compose.ui.unit.Dp, scale: androidx.compose.runtime.State<Float>) {
+    val size = coverSize(track, want)
     Crossfade(targetState = track.artLarge, animationSpec = tween(1200), label = "cover") { art ->
         // The shadow stays still and only the cover breathes (a resizing shadow is recalculated every frame).
         Box(Modifier.size(size).shadow(40.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp))) {

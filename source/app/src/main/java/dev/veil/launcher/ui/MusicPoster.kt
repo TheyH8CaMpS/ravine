@@ -178,8 +178,8 @@ private fun Poster(track: NowPlaying.Track, pick: ArtistArt.Pick, pos: Long, pro
                             modifier = Modifier.padding(top = 3.dp))
                     }
                 }
-                track.art?.let {
-                    val size = if (pick is ArtistArt.Pick.None) 130.dp else 92.dp
+                (track.artLarge ?: track.art)?.let {
+                    val size = coverSize(track, if (pick is ArtistArt.Pick.None) 130.dp else 92.dp)
                     Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.size(size).shadow(14.dp, RoundedCornerShape(2.dp)))
                 }
             }
@@ -191,8 +191,9 @@ private fun Poster(track: NowPlaying.Track, pick: ArtistArt.Pick, pos: Long, pro
 @Composable
 private fun Sleeve(track: NowPlaying.Track, appLabel: String?, pos: Long, progress: Float?, line: Pair<String?, String?>?, modifier: Modifier) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        track.art?.let {
-            Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.size(210.dp).shadow(22.dp, RoundedCornerShape(2.dp)))
+        // The 640 px copy (the 96 px one is for the pill); a small cover is shown smaller over its own blur.
+        (track.artLarge ?: track.art)?.let {
+            Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.size(coverSize(track, 210.dp)).shadow(22.dp, RoundedCornerShape(2.dp)))
         }
         Spacer(Modifier.width(30.dp))
         Column(Modifier.weight(1f)) {
