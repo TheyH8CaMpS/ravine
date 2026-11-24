@@ -11,6 +11,14 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
@@ -154,6 +162,10 @@ class PreviewShots {
             compose.mainClock.advanceTimeBy(100)
             ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
         }
+        capture(name)
+    }
+
+    private fun capture(name: String) {
         outDir.mkdirs()
         // Draw the window's view hierarchy straight into a bitmap (software, Robolectric native graphics).
         val view = compose.activity.window.decorView
@@ -172,6 +184,54 @@ class PreviewShots {
 
     // The menu normally opens when its wordmark has focus; here it's opened directly once Home has settled.
     @Test fun menu() = shoot("menu", newState()) { it.veilMenuOpen = true }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun menuSections() {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        org.robolectric.Shadows.shadowOf(activityManager).setDeviceConfigurationInfo(
+            android.content.pm.ConfigurationInfo().apply { reqGlEsVersion = 0x30000 },
+        )
+        org.robolectric.Shadows.shadowOf(context as Application).grantPermissions(android.Manifest.permission.RECORD_AUDIO)
+        val state = newState()
+        state.chooseMusicStyle("viz")
+        shoot("menu-overview", state) { it.veilMenuOpen = true }
+        fun button(label: String) = compose.onNode(hasText(label) and hasClickAction())
+        for (label in listOf("Next photo", "Start Ambient now", "Score alerts")) {
+            button(label).assertIsDisplayed()
+        }
+        button("Next photo").assertIsFocused()
+        val settings = mapOf(
+            "Wallpaper" to listOf("Change photo every", "Picture depth", "Film grain", "While music plays"),
+            "Ambient" to listOf("Starts after", "With music"),
+            "Look" to listOf("Theme", "Colours from the photo", "Netflix button", "Interface sounds", "Seasonal touches", "Ad-blocking pill"),
+            "Game day" to listOf("Dodgers", "Lakers", "Raiders", "Team wallpapers", "Team visualizer", "Watch games in", "Alert delay"),
+            "Weather" to listOf("Weather"),
+            "Visualizer" to listOf("Visualizer settings"),
+            "Yak" to listOf("The Yak daily", "Yak rewind"),
+            "Updates" to listOf("Update ready", "Check for updates", "Install updates"),
+        )
+        for (section in settings.keys) button(section).assertIsDisplayed()
+        // Exercise the conditional settings with local fixture state.
+        compose.runOnUiThread {
+            state.updates.release = Updates.Release(Updates.Version(0, 1, 0, 20), "https://fixture.invalid/update")
+        }
+        var previous = "Next photo"
+        for ((section, labels) in settings) {
+            button(previous).performKeyInput { pressKey(Key.DirectionDown) }
+            compose.mainClock.advanceTimeBy(150)
+            button(section).assertIsFocused()
+            button(section).performKeyInput { pressKey(Key.DirectionCenter) }
+            compose.mainClock.advanceTimeBy(150)
+            org.junit.Assert.assertTrue("Menu should stay open after entering $section", state.veilMenuOpen)
+            button("Back to sections").assertIsFocused()
+            for (label in labels) button(label).assertIsDisplayed()
+            if (section == "Wallpaper") capture("menu-wallpaper")
+            button("Back to sections").performKeyInput { pressKey(Key.Back) }
+            compose.mainClock.advanceTimeBy(150)
+            button(section).assertIsFocused()
+            previous = section
+        }
+    }
 
     @Test fun ambient() = shoot("ambient", newState()) { it.startAmbient() }
 
