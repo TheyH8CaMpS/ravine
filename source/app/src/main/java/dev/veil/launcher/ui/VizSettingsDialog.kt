@@ -90,10 +90,9 @@ fun VizSettingsDialog(state: LauncherState) {
         ) {
             // Live preview
             Column(Modifier.width(400.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Visualizer", fontFamily = Display, fontSize = 32.sp, lineHeight = 34.sp)
+                Text("Visualizer", style = Type.Title, fontSize = 24.sp, lineHeight = 30.sp)
                 Text(
-                    "Play some music to see it react", fontFamily = Display,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 12.sp, color = Veil.Text.copy(alpha = 0.6f),
+                    "Play some music to see it react", style = Type.Body, fontSize = 12.sp, color = Veil.Muted,
                 )
                 Spacer(Modifier.height(4.dp))
                 Box(Modifier.fillMaxWidth().height(225.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black)) {
@@ -106,8 +105,7 @@ fun VizSettingsDialog(state: LauncherState) {
                     )
                 }
                 Text(
-                    "Left and right adjust a setting  ·  Back to close", fontFamily = Display,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.45f),
+                    "Left and right adjust a setting  ·  Back to close", style = Type.Body, fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.45f),
                 )
             }
             // Sliders

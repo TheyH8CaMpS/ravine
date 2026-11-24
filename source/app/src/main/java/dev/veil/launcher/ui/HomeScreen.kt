@@ -274,7 +274,7 @@ private fun Hero(hero: WatchItem?, state: LauncherState, modifier: Modifier) {
 private fun HeroBody(hero: WatchItem?, state: LauncherState) {
     Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (hero == null) {
-            Text("CONTINUE WATCHING", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent)
+            Text("Continue watching", style = Type.Label, fontSize = 12.sp, color = Veil.Accent)
             Text(
                 if (state.connected) "Welcome back" else "Welcome to Ravine",
                 fontSize = 48.sp, lineHeight = 48.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.6).sp,
@@ -287,11 +287,11 @@ private fun HeroBody(hero: WatchItem?, state: LauncherState) {
         }
         Text(
             when {
-                hero.isNew -> "NEW EPISODE"
-                hero.upNext -> "UP NEXT"
-                else -> "CONTINUE"
+                hero.isNew -> "New episode"
+                hero.upNext -> "Up next"
+                else -> "Continue"
             },
-            fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent,
+            style = Type.Label, fontSize = 10.sp, color = Veil.Accent,
         )
         // Owner: the title about the size of the "Continue watching" label (serif 15 ≈ Manrope 12); logos to match.
         TitleOrLogo(hero, fontSize = 15.sp, maxLogoHeight = 30.dp)
@@ -387,7 +387,7 @@ private fun WatchPill(item: WatchItem, onClick: () -> Unit, onLongClick: () -> U
             }
             if (item.isNew) {
                 Text(
-                    "NEW", fontSize = 7.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp, color = Veil.Ink,
+                    "New", style = Type.Label, fontSize = 7.sp, fontWeight = FontWeight.ExtraBold, color = Veil.Ink,
                     modifier = Modifier.align(Alignment.TopStart).padding(start = 7.dp, top = 3.dp)
                         .clip(RoundedCornerShape(50)).background(Veil.Accent).padding(horizontal = 5.dp, vertical = 1.dp),
                 )
@@ -473,10 +473,10 @@ internal fun TitleOrLogo(item: WatchItem, fontSize: androidx.compose.ui.unit.Tex
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp).sizeIn(maxWidth = 440.dp, maxHeight = maxLogoHeight),
             )
         } else {
-            // Ravine: titles without a logo use the serif display face, like the wallpaper captions.
+            // Titles without a logo are Manrope titles (ravine#15: the serif is only for wordmark, clock and Now Playing).
             Text(
-                item.title, fontFamily = Display, fontSize = fontSize * 1.08f, lineHeight = fontSize * 1.1f,
-                letterSpacing = (-0.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                item.title, style = Type.Title, fontSize = fontSize * 0.85f, lineHeight = fontSize,
+                letterSpacing = (-0.3).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -551,18 +551,17 @@ private fun WallpaperCaption(wallpaper: dev.veil.launcher.data.Wallpaper, modifi
         Column(Modifier.widthIn(max = 280.dp), verticalArrangement = Arrangement.spacedBy(2.dp), horizontalAlignment = Alignment.End) {
             if (w.collection.isNotBlank()) {
                 Text(
-                    w.collection.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.4.sp, color = Veil.Accent.copy(alpha = 0.85f),
+                    w.collection, style = Type.Label, fontSize = 8.sp, color = Veil.Accent.copy(alpha = 0.85f),
                 )
             }
             Text(
                 // Owner: no bigger than the "Continue watching" label (Manrope 12 bold). Was 52, then 26 sp.
-                w.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 12.sp, lineHeight = 14.sp,
+                w.title.ifBlank { "Ravine" }, style = Type.Title, fontSize = 11.sp, lineHeight = 14.sp,
                 color = Veil.Text.copy(alpha = 0.9f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             w.author?.let {
                 Text(
-                    "Photograph by $it", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    "Photograph by $it", style = Type.Body,
                     fontSize = 9.sp, color = Veil.Text.copy(alpha = 0.55f),
                 )
             }

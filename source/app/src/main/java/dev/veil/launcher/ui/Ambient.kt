@@ -143,7 +143,7 @@ fun AmbientScreen(
             Modifier.align(Alignment.TopStart).padding(start = 48.dp, top = 30.dp).alpha(chrome),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Ravine", fontFamily = Display, fontSize = 22.sp, color = Veil.Text.copy(alpha = 0.7f))
+            Text("Ravine", style = Type.Display, fontSize = 22.sp, color = Veil.Text.copy(alpha = 0.7f))
         }
         Row(
             Modifier.align(Alignment.TopEnd).padding(end = 48.dp, top = 24.dp).alpha(chrome),
@@ -167,12 +167,12 @@ fun AmbientScreen(
                 Spacer(Modifier.width(9.dp))
                 Text(
                     "${game.team.name} ${game.ourScore ?: 0} · ${game.opponent} ${game.theirScore ?: 0}",
-                    fontFamily = Display, fontSize = 18.sp, color = Veil.Text.copy(alpha = 0.85f),
+                    style = Type.Title, fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.85f),
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    (if (game.state == dev.veil.launcher.data.Game.State.FINAL) "Final" else game.detail).uppercase(),
-                    fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp, color = Veil.Accent,
+                    if (game.state == dev.veil.launcher.data.Game.State.FINAL) "Final" else game.detail,
+                    style = Type.Label, fontSize = 10.sp, color = Veil.Accent,
                 )
             }
         }
@@ -282,8 +282,9 @@ private fun MusicClassic(track: NowPlaying.Track, scale: androidx.compose.runtim
                 ) { (title, artist) ->
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            title, fontSize = 44.sp, lineHeight = 46.sp, fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-1.4).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            // ravine#15: the Now Playing title, ~59% of the old 44 sp; at most 2 lines.
+                            title, style = Type.NowPlaying, fontSize = 26.sp, lineHeight = 28.sp,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                         artist?.let { Text(it, fontSize = 20.sp, color = Veil.Text.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
@@ -312,8 +313,8 @@ private fun MusicWithLyrics(track: NowPlaying.Track, lyr: Lyrics.State, scale: a
             ) { (title, artist) ->
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        title, fontSize = 24.sp, lineHeight = 27.sp, fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-0.6).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        title, style = Type.NowPlaying, fontSize = 16.sp, lineHeight = 18.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                     artist?.let { Text(it, fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
@@ -382,7 +383,7 @@ private fun PlayingLabel(track: NowPlaying.Track) {
         Spacer(Modifier.width(8.dp))
         Text(
             if (track.playing) "NOW PLAYING" else "PAUSED",
-            fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent,
+            style = Type.Eyebrow, fontSize = 10.sp, letterSpacing = 1.4.sp, color = Veil.Accent,
         )
     }
 }
@@ -462,12 +463,12 @@ private fun WallpaperSlides(walls: List<dev.veil.launcher.data.Wallpaper>) {
         ) { it ->
             Column(Modifier.widthIn(max = 620.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (it.collection.isNotBlank()) {
-                    Text(it.collection.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = Veil.Accent.copy(alpha = 0.85f))
+                    Text(it.collection, style = Type.Label, fontSize = 10.sp, color = Veil.Accent.copy(alpha = 0.85f))
                 }
-                Text(it.title.ifBlank { "Ravine" }, fontFamily = Display, fontSize = 28.sp, lineHeight = 30.sp, color = Veil.Text.copy(alpha = 0.9f))
+                Text(it.title.ifBlank { "Ravine" }, style = Type.Title, fontSize = 22.sp, lineHeight = 26.sp, color = Veil.Text.copy(alpha = 0.9f))
                 it.author?.let { a ->
                     Text(
-                        "Photograph by $a", fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        "Photograph by $a", style = Type.Body,
                         fontSize = 10.sp, color = Veil.Text.copy(alpha = 0.55f),
                     )
                 }
@@ -531,8 +532,8 @@ private fun ArtworkFace(items: List<WatchItem>) {
             if (it != null) {
                 Column(Modifier.widthIn(max = 620.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        if (it.upNext) "UP NEXT" else "CONTINUE",
-                        fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Veil.Accent,
+                        if (it.upNext) "Up next" else "Continue",
+                        style = Type.Label, fontSize = 12.sp, color = Veil.Accent,
                     )
                     TitleOrLogo(it, fontSize = 40.sp, maxLogoHeight = 120.dp)
                     Text(it.heroLine, fontSize = 14.sp, color = Veil.Text.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)

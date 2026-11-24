@@ -48,7 +48,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -116,10 +115,10 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
     val context = LocalContext.current
     val firstRow = remember { FocusRequester() }
     Eyebrow("Courtside")
-    Text("Scores", fontFamily = Display, fontSize = 22.sp, lineHeight = 24.sp, modifier = Modifier.padding(top = 3.dp))
+    Text("Scores", style = Type.Title, fontSize = 18.sp, lineHeight = 24.sp, modifier = Modifier.padding(top = 3.dp))
     Text(
         java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d")),
-        fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 8.sp, color = Dim,
+        style = Type.Body, fontSize = 8.sp, color = Dim,
     )
     val tabs = s.tabs
     // Left/Right anywhere in the list moves between tabs; the tabs themselves are labels, not stops.
@@ -147,7 +146,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
         LazyColumn(state = list, modifier = Modifier.weight(1f).fillMaxWidth()) {
             var first = true
             sections.forEachIndexed { i, (name, gs) ->
-                item(key = "h-$name") { Section(ROMAN[i], name) }
+                item(key = "h-$name") { Section(name) }
                 items(gs, key = { it.id }) { g ->
                     val m = if (first) Modifier.focusRequester(firstRow) else Modifier
                     first = false
@@ -174,8 +173,6 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
     LaunchedEffect(s.tab, shape) { delay(60); runCatching { firstRow.requestFocus() } }
 }
 
-private val ROMAN = listOf("I", "II", "III", "IV")
-
 @Composable
 private fun Tab(label: String, selected: Boolean) {
     Column(Modifier.padding(horizontal = 7.dp, vertical = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -196,7 +193,7 @@ private fun NoteRow(text: String, modifier: Modifier) {
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
-        Text(text, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 9.sp, color = Dim, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+        Text(text, style = Type.Body, fontSize = 9.sp, color = Dim, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
     }
 }
 
@@ -225,7 +222,7 @@ private fun GameRow(g: Score, context: android.content.Context, modifier: Modifi
                             t.name, fontSize = 8.5.sp, fontWeight = if (t.result == "loss") FontWeight.Medium else FontWeight.SemiBold,
                             color = if (t.result == "loss") Dim else Veil.Text, maxLines = 1,
                         )
-                        if (i == 0 && g.pick != null) Tag(if (g.live && closeGame(g.pick)) "CLOSE" else "WORTH WATCHING")
+                        if (i == 0 && g.pick != null) Tag(if (g.live && closeGame(g.pick)) "Close" else "Worth watching")
                     }
                 }
             }
@@ -263,7 +260,7 @@ private fun statusText(context: android.content.Context, g: Score): String = whe
 @Composable
 private fun Tag(text: String) {
     Text(
-        text, fontSize = 5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = Veil.Accent,
+        text, style = Type.Label, fontSize = 6.sp, color = Veil.Accent,
         modifier = Modifier.padding(start = 6.dp).clip(RoundedCornerShape(2.dp))
             .background(Veil.Accent.copy(alpha = 0.12f)).padding(horizontal = 3.dp, vertical = 1.dp),
     )
@@ -288,12 +285,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(s: Scor
         s.standings.forEach { (league, st) ->
             item(key = "l-$league") {
                 Text(
-                    CourtsideScores.leagueLabel(league), fontFamily = Display, fontSize = 14.sp,
+                    CourtsideScores.leagueLabel(league), style = Type.Title, fontSize = 12.sp,
                     modifier = Modifier.padding(top = if (first) 6.dp else 16.dp),
                 )
             }
             st.groups.forEachIndexed { gi, group ->
-                item(key = "$league-g$gi") { Section(null, group.name) }
+                item(key = "$league-g$gi") { Section(group.name) }
                 items(group.rows.size, key = { "$league-g$gi-$it" }) { ri ->
                     val r = group.rows[ri]
                     val m = if (first) Modifier.focusRequester(firstRow) else Modifier
@@ -318,7 +315,7 @@ private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, modifier: Mo
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$place", fontFamily = Display, fontSize = 8.sp, color = Dim, modifier = Modifier.width(16.dp))
+            Text("$place", style = Type.Value, fontSize = 8.sp, color = Dim, modifier = Modifier.width(16.dp))
             Text(r.name, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1)
             Text(r.record, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
             Text(r.points?.let { "$it pts" } ?: r.gamesBack?.let { if (it == "-" || it == "0") "—" else "$it GB" } ?: "",
@@ -340,13 +337,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
     val (away, home) = g.teams.getOrNull(0) to g.teams.getOrNull(1)
     Eyebrow(CourtsideScores.leagueLabel(g.league))
     Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        away?.let { TeamLogo(it, 16.dp); Spacer(Modifier.width(6.dp)); Text(it.name, fontFamily = Display, fontSize = 20.sp) }
+        away?.let { TeamLogo(it, 16.dp); Spacer(Modifier.width(6.dp)); Text(it.name, style = Type.Title, fontSize = 16.sp) }
         if (g.state != "pre") {
             Text("  ${away?.score ?: ""}", fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text("  –  ", fontSize = 13.sp, color = Dim)
             Text("${home?.score ?: ""}  ", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        } else Text("  at  ", fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, color = Dim)
-        home?.let { Text(it.name, fontFamily = Display, fontSize = 20.sp); Spacer(Modifier.width(6.dp)); TeamLogo(it, 16.dp) }
+        } else Text("  at  ", style = Type.Body, fontSize = 13.sp, color = Dim)
+        home?.let { Text(it.name, style = Type.Title, fontSize = 16.sp); Spacer(Modifier.width(6.dp)); TeamLogo(it, 16.dp) }
     }
     Row(Modifier.padding(top = 3.dp)) {
         Text(statusText(context, g), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = if (g.live) Live else Veil.Text)
@@ -383,13 +380,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
     val d = s.detail
     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll)) {
         if (d == null) { Note("Loading…"); return@Column }
-        var n = 0
         if (d.compare.isNotEmpty()) {
-            Section(ROMAN[n++], "At a glance")
+            Section("At a glance")
             d.compare.forEach { c -> CompareRow(c, g.team(d.teamIds.getOrNull(0)) ?: away, g.team(d.teamIds.getOrNull(1)) ?: home) }
         }
         if (d.performers.isNotEmpty()) {
-            Section(ROMAN[n++], if (g.state == "pre") "Season leaders" else "Top performers")
+            Section(if (g.state == "pre") "Season leaders" else "Top performers")
             val ids = (d.teamIds.filter { it.isNotBlank() }.ifEmpty { g.teams.map { it.id } })
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 ids.take(2).forEach { id ->
@@ -402,10 +398,10 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
             }
         }
         if (d.moments.isNotEmpty()) {
-            Section(ROMAN[n++], "The moments that mattered")
+            Section("The moments that mattered")
             d.moments.forEach { m -> MomentRow(m, g) }
         }
-        if (n == 0) Note("Details appear once the game starts.")
+        if (d.compare.isEmpty() && d.performers.isEmpty() && d.moments.isEmpty()) Note("Details appear once the game starts.")
         Spacer(Modifier.height(10.dp))
     }
     Hint("Back scores  ·  ▲ ▼ scroll")
@@ -419,7 +415,7 @@ private fun CompareRow(c: CourtsideScores.Compare, a: CourtsideScores.Team?, b: 
         Text(c.values.getOrElse(0) { "—" }, fontSize = 8.sp, fontWeight = if (c.winner == "away") FontWeight.Bold else FontWeight.Medium,
             color = if (c.winner == "home") Dim else Veil.Text, modifier = Modifier.width(34.dp), textAlign = TextAlign.End)
         Bar(c.bars?.get(0), a, Modifier.weight(1f).padding(start = 6.dp), fromEnd = true)
-        Text(c.label.uppercase(), fontSize = 5.5.sp, letterSpacing = 0.5.sp, color = Dim, modifier = Modifier.width(90.dp), textAlign = TextAlign.Center, maxLines = 1)
+        Text(c.label, style = Type.Label, fontSize = 6.5.sp, color = Dim, modifier = Modifier.width(90.dp), textAlign = TextAlign.Center, maxLines = 1)
         Bar(c.bars?.get(1), b, Modifier.weight(1f).padding(end = 6.dp), fromEnd = false)
         Text(c.values.getOrElse(1) { "—" }, fontSize = 8.sp, fontWeight = if (c.winner == "home") FontWeight.Bold else FontWeight.Medium,
             color = if (c.winner == "away") Dim else Veil.Text, modifier = Modifier.width(34.dp))
@@ -441,7 +437,7 @@ private fun TeamHeader(t: CourtsideScores.Team) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         TeamLogo(t, 10.dp)
         Spacer(Modifier.width(5.dp))
-        Text(t.name.uppercase(), fontSize = 6.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Color(t.color))
+        Text(t.name, style = Type.Label, fontSize = 7.sp, color = Color(t.color))
     }
 }
 
@@ -452,7 +448,7 @@ private fun Performer(p: CourtsideScores.Performer, t: CourtsideScores.Team?) {
         Box(Modifier.padding(top = 2.dp).width(1.5.dp).height(16.dp).background(Color(t?.color ?: 0xFFD8D8DC).copy(alpha = 0.85f)))
         Spacer(Modifier.width(6.dp))
         Column {
-            Text(p.label.uppercase(), fontSize = 5.5.sp, letterSpacing = 0.5.sp, color = Dim)
+            Text(p.label, style = Type.Label, fontSize = 6.5.sp, color = Dim)
             Text("${p.athlete}  ·  ${p.line}", fontSize = 7.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -466,7 +462,7 @@ private fun MomentRow(m: CourtsideScores.Moment, g: Score) {
         Spacer(Modifier.width(6.dp))
         t?.let { TeamLogo(it, 9.dp); Spacer(Modifier.width(5.dp)) }
         Text(
-            "${CourtsideScores.periodLabel(g.feed, m.period)} ${m.clock}".trim(), fontFamily = Display, fontStyle = FontStyle.Italic,
+            "${CourtsideScores.periodLabel(g.feed, m.period)} ${m.clock}".trim(), style = Type.Value,
             fontSize = 8.sp, color = Dim, modifier = Modifier.width(44.dp), maxLines = 1,
         )
         Text(m.text, fontSize = 7.5.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 10.sp)
@@ -478,14 +474,13 @@ private fun MomentRow(m: CourtsideScores.Moment, g: Score) {
 
 @Composable
 private fun Eyebrow(text: String) =
-    Text(text.uppercase(), fontSize = 5.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Veil.Accent)
+    Text(text, style = Type.Label, fontSize = 7.sp, color = Veil.Accent)
 
-/** "I  LIVE NOW ————": the menu's field-guide section style. */
+/** "Live now ————": the menu's section style (sentence case, no numerals; ravine#15). */
 @Composable
-private fun Section(numeral: String?, name: String) {
+private fun Section(name: String) {
     Row(Modifier.fillMaxWidth().padding(top = 11.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        numeral?.let { Text(it, fontFamily = Display, fontSize = 8.sp, color = Veil.Accent); Spacer(Modifier.width(6.dp)) }
-        Text(name.uppercase(), fontSize = 5.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Dim)
+        Text(name, style = Type.Label, fontSize = 7.sp, color = Dim)
         Spacer(Modifier.width(6.dp))
         Box(Modifier.weight(1f).height(0.5.dp).background(Faint))
     }
@@ -493,7 +488,7 @@ private fun Section(numeral: String?, name: String) {
 
 @Composable
 private fun Note(text: String) =
-    Text(text, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 9.sp, color = Dim, modifier = Modifier.padding(top = 14.dp))
+    Text(text, style = Type.Body, fontSize = 9.sp, color = Dim, modifier = Modifier.padding(top = 14.dp))
 
 @Composable
 private fun Hint(text: String) =
@@ -517,7 +512,7 @@ fun ScoresButton(state: LauncherState) {
     ) {
         Row(Modifier.padding(horizontal = 11.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (liveFavorite) { Box(Modifier.size(5.dp).clip(CircleShape).background(Live)); Spacer(Modifier.width(6.dp)) }
-            Text("Scores", fontFamily = Display, fontSize = 14.sp, lineHeight = 15.sp)
+            Text("Scores", style = Type.Label, fontSize = 11.sp, lineHeight = 15.sp)
         }
     }
 }
