@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -128,7 +129,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
         if (tabs[i] != s.tab) { Sfx.move(1.05f); s.selectTab(tabs[i]) }
     }
     Row(Modifier.padding(top = 11.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        tabs.forEach { t -> Tab(if (t == ScoresState.YOURS || t == ScoresState.STANDINGS) t else CourtsideScores.leagueLabel(t), t == s.tab) }
+        tabs.forEach { t -> Tab(if (t == ScoresState.YOURS || t == ScoresState.STANDINGS || t == ScoresState.NOTABLE) t else CourtsideScores.leagueLabel(t), t == s.tab) }
     }
     val rowKeys = Modifier.onPreviewKeyEvent {
         if (it.type != KeyEventType.KeyDown) false
@@ -136,6 +137,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
     }
     if (s.tab == ScoresState.STANDINGS) {
         StandingsView(s, firstRow, rowKeys)
+    } else if (s.tab == ScoresState.NOTABLE) {
+        NotableView(s, firstRow, rowKeys)
     } else {
         val games = s.gamesFor(s.tab)
         val sections = listOf(
@@ -170,7 +173,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
     Hint(if (s.tab == ScoresState.STANDINGS) "▲ ▼ scroll  ·  ◀ ▶ tabs  ·  Back close" else "OK game details  ·  ◀ ▶ tabs  ·  Back close")
     // Focus sits on the first row of the tab (a game, a team, or the "nothing today" line), re-placed whenever
     // the tab or its content changes underneath it.
-    val shape = if (s.tab == ScoresState.STANDINGS) s.standings.size else s.gamesFor(s.tab).size
+    val shape = when (s.tab) {
+        ScoresState.STANDINGS -> s.standings.size
+        ScoresState.NOTABLE -> s.notable.size
+        else -> s.gamesFor(s.tab).size
+    }
     LaunchedEffect(s.tab, shape) { delay(60); runCatching { firstRow.requestFocus() } }
 }
 
@@ -304,6 +311,58 @@ private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(s: Scor
                     val m = if (first) Modifier.focusRequester(firstRow) else Modifier
                     first = false
                     StandingRow(ri + 1, r, m.then(rowKeys))
+                }
+            }
+        }
+    }
+}
+
+// ---- Notable lines (ravine#22) ----------------------------------------------------------------------------
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.NotableView(s: ScoresState, firstRow: FocusRequester, rowKeys: Modifier) {
+    LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+        item(key = "h") { Section(s.notableLabel) }
+        items(s.notable.size, key = { "n-$it" }) { i ->
+            val n = s.notable[i]
+            val m = if (i == 0) Modifier.focusRequester(firstRow) else Modifier
+            NotableRow(n, m.then(rowKeys)) { Sfx.open(); s.openNotable(n) }
+        }
+    }
+}
+
+/** Label, player and team, then the stat line as the focus; a thin team-colour bar, and a soft wash when focused. */
+@Composable
+private fun NotableRow(n: CourtsideScores.Notable, modifier: Modifier, onClick: () -> Unit) {
+    val team = Color(n.teamColor)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().padding(vertical = 1.dp).focusSound(1f),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(7.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent, contentColor = Veil.Text,
+            focusedContainerColor = team.copy(alpha = 0.08f), focusedContentColor = Veil.Text,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(androidx.compose.foundation.BorderStroke(1.dp, Veil.Accent.copy(alpha = 0.6f)), shape = RoundedCornerShape(7.dp)),
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+    ) {
+        Row(Modifier.height(IntrinsicSize.Min).padding(horizontal = 8.dp, vertical = 5.dp)) {
+            Box(Modifier.width(3.dp).fillMaxHeight().clip(RoundedCornerShape(1.dp)).background(team))
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    n.label, style = Type.Label, fontSize = 6.5.sp, maxLines = 1,
+                    color = when (n.type) { "rough" -> Veil.Text.copy(alpha = 0.7f); "mixed" -> Dim; else -> Veil.Accent },
+                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(n.name, fontSize = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text("  ${n.team}", fontSize = 7.sp, color = Dim, maxLines = 1)
+                }
+                Text(n.statLine, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                listOfNotNull(n.context, if (n.onRoster) "On your roster" else null).joinToString("  ·  ").takeIf { it.isNotEmpty() }?.let {
+                    Text(it, fontSize = 7.sp, color = Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

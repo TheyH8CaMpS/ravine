@@ -34,6 +34,12 @@ object CourtsideScores {
     data class Moment(val teamId: String?, val period: String, val clock: String, val text: String, val score: String?)
     data class Detail(val teamIds: List<String>, val compare: List<Compare>, val performers: List<Performer>, val moments: List<Moment>)
 
+    /** One of Courtside's Notable lines (GET /api/tv/notable, courtside#249); [feed] + [eventId] open its game. */
+    data class Notable(
+        val league: String, val name: String, val team: String, val teamColor: Long, val label: String, val type: String,
+        val statLine: String, val context: String?, val onRoster: Boolean, val feed: String, val eventId: String,
+    )
+
     data class StandingRow(val abbr: String, val name: String, val record: String, val gamesBack: String?, val points: String?, val streak: String?)
     data class StandingGroup(val name: String, val rows: List<StandingRow>)
     data class Standings(val season: String, val groups: List<StandingGroup>)
@@ -95,6 +101,18 @@ object CourtsideScores {
             moments = o.optJSONArray("moments").objects().map {
                 Moment(it.str("teamId"), it.optString("period"), it.optString("clock"), it.optString("text"), it.str("score"))
             },
+        )
+    }
+
+    /** `/api/tv/notable`: a JSON array, best first. Rows without a stat line or a game to open are skipped. */
+    fun parseNotable(text: String): List<Notable> = JSONArray(text).objects().mapNotNull { o ->
+        val statLine = o.str("statLine") ?: return@mapNotNull null
+        val eventId = o.str("eventId") ?: return@mapNotNull null
+        Notable(
+            league = o.optString("league"), name = o.optString("name"), team = o.optString("team"),
+            teamColor = color(o.str("teamColor")), label = o.optString("label"), type = o.optString("type"),
+            statLine = statLine, context = o.str("context"), onRoster = o.optBoolean("onRoster"),
+            feed = o.optString("feed"), eventId = eventId,
         )
     }
 

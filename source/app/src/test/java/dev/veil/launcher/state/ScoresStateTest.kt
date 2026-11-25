@@ -78,4 +78,51 @@ class ScoresStateTest {
         assertEquals("{\"games\":[]}", c.load(today))
         assertNull(c.load(today.plusDays(1)))
     }
+
+    // ravine#22: Notable lines are today's, or last night's while today has none; the tab shows only with lines.
+    private fun notableState(byDate: Map<String, String>, asked: MutableList<String>) = ScoresState(
+        CoroutineScope(Dispatchers.Unconfined),
+        fetcher = { path ->
+            asked += path
+            if (path.startsWith("/api/tv/notable")) byDate[path.substringAfter("date=").substringBefore('&')] else board("NBA-1")
+        },
+        configured = { true },
+        cache = ScoresCache(File(tmp.root, "scores.json")),
+        today = { today },
+    )
+
+    private val line = """[{"league":"NBA","name":"Luka Doncic","team":"LAL","teamColor":"#8F6AC7","label":"Triple-double",
+        "type":"achievement","statLine":"34 PTS · 12 REB · 11 AST","context":"","onRoster":false,"feed":"NBA","eventId":"1"}]"""
+
+    @Test fun notableFallsBackToLastNightWhenTodayIsEmpty() {
+        val asked = mutableListOf<String>()
+        val s = notableState(mapOf("2026-11-25" to "[]", "2026-11-24" to line), asked)
+        s.show()
+        waitUntil { s.notable.isNotEmpty() }
+        assertEquals("Last night", s.notableLabel)
+        assertEquals(listOf("Luka Doncic"), s.notable.map { it.name })
+        assertEquals(
+            listOf("/api/tv/notable?date=2026-11-25&zone=America/Los_Angeles", "/api/tv/notable?date=2026-11-24&zone=America/Los_Angeles"),
+            asked.filter { it.startsWith("/api/tv/notable") },
+        )
+        assertEquals(ScoresState.NOTABLE, s.tabs[1])
+    }
+
+    @Test fun notableUsesTodayWhenItHasLines() {
+        val asked = mutableListOf<String>()
+        val s = notableState(mapOf("2026-11-25" to line), asked)
+        s.show()
+        waitUntil { s.notable.isNotEmpty() }
+        assertEquals("Today", s.notableLabel)
+        assertEquals(1, asked.count { it.startsWith("/api/tv/notable") })
+    }
+
+    @Test fun noNotableTabWithoutLines() {
+        val s = notableState(mapOf("2026-11-25" to "[]", "2026-11-24" to "[]"), mutableListOf())
+        s.show()
+        waitUntil { !s.loading }
+        Thread.sleep(50)
+        assertTrue(s.notable.isEmpty())
+        assertFalse(ScoresState.NOTABLE in s.tabs)
+    }
 }

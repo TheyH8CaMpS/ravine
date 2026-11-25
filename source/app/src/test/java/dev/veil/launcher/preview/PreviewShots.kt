@@ -329,6 +329,9 @@ class PreviewShots {
         {"abbr":"LAC","name":"Chargers","record":"6-4","gamesBack":"2","streak":"L1"},{"abbr":"LV","name":"Raiders","record":"4-6","gamesBack":"4","streak":"L2"}]},
       {"name":"AFC East","rows":[{"abbr":"NE","name":"Patriots","record":"8-3","gamesBack":"-","streak":"W5"},{"abbr":"BUF","name":"Bills","record":"7-3","gamesBack":"0.5","streak":"W2"}]}]}}"""
 
+    // Courtside's /api/tv/notable (ravine#22); the same shape as the unit-test fixture.
+    private val notableJson = javaClass.getResourceAsStream("/courtside/tv-notable.json")!!.bufferedReader().readText()
+
     private fun scoresState(): LauncherState = newState().also { s ->
         s.scores.forceAvailable = true
         s.scores.fetcher = { path ->
@@ -336,6 +339,7 @@ class PreviewShots {
                 path.startsWith("/api/tv/scores") -> scoresJson
                 path.startsWith("/api/tv/game") -> gameJson
                 path.startsWith("/api/tv/standings") -> standingsJson
+                path.startsWith("/api/tv/notable") -> notableJson
                 else -> null
             }
         }
@@ -345,6 +349,7 @@ class PreviewShots {
     @Test fun scoresList() = shoot("scores-list", scoresState()) { it.scores.show() }
     @Test fun scoresNfl() = shoot("scores-nfl", scoresState()) { it.scores.show(); it.scores.selectTab("NFL") }
     @Test fun scoresNba() = shoot("scores-nba", scoresState()) { it.scores.show(); it.scores.selectTab("NBA") }
+    @Test fun scoresNotable() = shoot("scores-notable", scoresState()) { it.scores.show(); it.scores.selectTab("Notable") }
     @Test fun scoresStandings() = shoot("scores-standings", scoresState()) { it.scores.show(); it.scores.selectTab("Standings") }
     @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
         s.scores.show()

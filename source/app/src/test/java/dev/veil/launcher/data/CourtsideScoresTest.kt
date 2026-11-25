@@ -84,4 +84,25 @@ class CourtsideScoresTest {
         val tied = CourtsideScores.parseScores(rows).first().let { g -> g.copy(teams = g.teams.map { it.copy(score = "90") }) }
         assertEquals(listOf<Long?>(null, null), CourtsideScores.rowColors(tied).scores)
     }
+
+    // ravine#22: Courtside's GET /api/tv/notable (courtside#249), from a fixture in its response shape.
+    @Test fun parsesNotableLines() {
+        val text = javaClass.getResourceAsStream("/courtside/tv-notable.json")!!.bufferedReader().readText()
+        val rows = CourtsideScores.parseNotable(text)
+        assertEquals(listOf("Luka Doncic", "Brock Bowers", "Cam Thomas", "Kirill Kaprizov"), rows.map { it.name })
+        val luka = rows[0]
+        assertEquals("LAL", luka.team)
+        assertEquals(0xFF8F6AC7, luka.teamColor)
+        assertEquals("Triple-double", luka.label)
+        assertEquals("achievement", luka.type)
+        assertEquals("34 PTS · 12 REB · 11 AST", luka.statLine)
+        assertEquals("W 121–110 vs UTAH", luka.context)
+        assertTrue(luka.onRoster)
+        assertEquals("NBA" to "401810101", luka.feed to luka.eventId)
+        assertEquals("rough", rows[2].type)
+        assertNull(rows[2].context) // empty context → none
+        assertEquals(0xFFD8D8DC, rows[3].teamColor) // unreadable colour → neutral
+        assertTrue(!rows[3].onRoster) // missing → false
+        assertTrue(CourtsideScores.parseNotable("[]").isEmpty())
+    }
 }

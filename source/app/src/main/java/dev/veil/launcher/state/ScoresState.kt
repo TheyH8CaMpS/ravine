@@ -70,9 +70,9 @@ class ScoresState internal constructor(
     /** The Pacific day [games] belong to. */
     private var gamesDay: LocalDate? = null
 
-    /** Tabs: Your teams, each league playing today, Standings. */
+    /** Tabs: Your teams, Notable (when Courtside has lines), each league playing today, Standings. */
     val tabs: List<String> get() =
-        listOf(YOURS) + CourtsideScores.LEAGUE_ORDER.filter { l -> games.any { it.league == l } } + STANDINGS
+        listOf(YOURS) + (if (notable.isNotEmpty()) listOf(NOTABLE) else emptyList()) + CourtsideScores.LEAGUE_ORDER.filter { l -> games.any { it.league == l } } + STANDINGS
     var tab by mutableStateOf(YOURS)
 
     fun gamesFor(tab: String): List<Score> = if (tab == YOURS) games.filter { it.favorite } else games.filter { it.league == tab }
@@ -88,10 +88,57 @@ class ScoresState internal constructor(
         private set
     private var standingsLoaded = 0L
 
+    /** Courtside's Notable lines (ravine#22): today's, or last night's while today has none yet. Up to 8. */
+    var notable by mutableStateOf<List<CourtsideScores.Notable>>(emptyList())
+        private set
+    /** "Today" or "Last night", like the web overview's slate label. */
+    var notableLabel by mutableStateOf("Today")
+        private set
+    private var notableDay: LocalDate? = null
+    private var notableFor: LocalDate? = null // the day the lines were loaded on
+    private var notableLoaded = 0L
+
     fun show() {
         open = true; game = null; detail = null
         restoreToday()
         refresh()
+        loadNotable()
+    }
+
+    /** Lines only change as games finish: loaded on open, at most every 10 minutes. */
+    fun loadNotable(now: Long = System.currentTimeMillis()) {
+        val day = today()
+        if (notableFor == day && now - notableLoaded < 10 * 60_000L) return
+        notableFor = day
+        notableLoaded = now
+        scope.launch {
+            val (rows, from) = withContext(Dispatchers.IO) {
+                fun fetch(d: LocalDate) = runCatching { fetcher(notablePath(d))?.let { CourtsideScores.parseNotable(it) } }.getOrNull()
+                val todays = fetch(day)
+                // Mornings before any game has finished: last night's lines.
+                if (todays != null && todays.isNotEmpty()) todays to day else (fetch(day.minusDays(1)) ?: emptyList()) to day.minusDays(1)
+            }
+            notable = rows.take(8)
+            notableDay = from
+            notableLabel = if (from == day) "Today" else "Last night"
+            if (rows.isEmpty()) notableFor = null
+            if (tab !in tabs) tab = YOURS
+        }
+    }
+
+    private fun notablePath(day: LocalDate) = "/api/tv/notable?date=$day&zone=${ZONE.id}"
+
+    /** OK on a Notable line: its game page, from today's list or that day's scoreboard. */
+    fun openNotable(n: CourtsideScores.Notable) {
+        games.firstOrNull { it.feed == n.feed && it.eventId == n.eventId }?.let { openGame(it); return }
+        val day = notableDay ?: today()
+        scope.launch {
+            val g = withContext(Dispatchers.IO) {
+                runCatching { fetcher(scoresPath(day))?.let { CourtsideScores.parseScores(it) } }.getOrNull()
+                    ?.firstOrNull { it.feed == n.feed && it.eventId == n.eventId }
+            }
+            if (g != null && open) openGame(g)
+        }
     }
 
     /** Before the network answers: keep today's games in memory, else today's copy on disk; drop an earlier day's. */
@@ -179,6 +226,7 @@ class ScoresState internal constructor(
     companion object {
         const val YOURS = "Your teams"
         const val STANDINGS = "Standings"
+        const val NOTABLE = "Notable"
         val ZONE: ZoneId = ZoneId.of("America/Los_Angeles")
     }
 }
