@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,12 +36,14 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -257,8 +260,14 @@ fun gameStartText(context: android.content.Context, startMs: Long, now: Long): S
 }
 
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().height(34.dp)) {
+    val scoresFocus = remember { FocusRequester() }
+    Box(
+        modifier.fillMaxWidth().height(34.dp)
+            .focusRestorer { if (state.scores.available) scoresFocus else FocusRequester.Default }
+            .focusGroup(),
+    ) {
         Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
             VeilMenuAnchor(state)
             state.nowPlaying.track?.let { track ->
@@ -288,7 +297,7 @@ fun TopBar(state: LauncherState, modifier: Modifier = Modifier) {
             // Ravine game day: today's game, its live score, or the final (PROJECT.md D27).
             state.gameDay.game?.let { GameStrip(it, state.minuteTick, onClick = state.gameDay::openGame) }
             // Courtside's scores and stats (D49), once Courtside is set up on this TV.
-            if (state.scores.available) ScoresButton(state)
+            if (state.scores.available) ScoresButton(state, scoresFocus)
             // Ravine: the ad-blocking pill is off unless turned on in the menu (PROJECT.md D4).
             if (state.showPrivacy) PrivacyPill(state, Modifier.onFocusChanged { privacyFocused = it.isFocused })
             Surface(

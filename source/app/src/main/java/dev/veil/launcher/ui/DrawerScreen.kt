@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,19 +60,7 @@ fun DrawerScreen(state: LauncherState) {
     Column(Modifier.fillMaxSize().background(Veil.Bg).padding(start = 48.dp, end = 48.dp, top = 26.dp)) {
         TopBar(state, Modifier.zIndex(1f))
         Spacer(Modifier.height(28.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            Text("All apps", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp)
-            Spacer(Modifier.weight(1f))
-            Pill(
-                onClick = { if (state.connected) state.disconnect() else state.startConnect() },
-                padding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
-            ) {
-                Text(
-                    if (state.connected) "Trakt connected · Disconnect" else "Connect Trakt",
-                    fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
+        Text("All apps", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp)
         Spacer(Modifier.height(16.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(5),

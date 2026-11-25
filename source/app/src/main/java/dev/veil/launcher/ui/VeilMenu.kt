@@ -168,6 +168,7 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
     var section by remember { mutableStateOf<MenuSection?>(null) }
     var returnTo by remember { mutableStateOf<MenuSection?>(null) }
     val first = remember { FocusRequester() }
+    val sectionFirst = remember { FocusRequester() }
     val sectionBack = remember { FocusRequester() }
     val sectionRows = remember { MenuSection.entries.associateWith { FocusRequester() } }
     val vizButton = remember { FocusRequester() }
@@ -179,7 +180,11 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
             returnTo = null
         } else {
             withFrameNanos { }
-            val target = if (section != null) sectionBack else returnTo?.let(sectionRows::get) ?: first
+            val target = when {
+                section == null -> returnTo?.let(sectionRows::get) ?: first
+                section == MenuSection.Visualizer && state.musicMode != "viz" -> sectionBack
+                else -> sectionFirst
+            }
             target.requestFocus()
         }
     }
@@ -267,7 +272,7 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
                     Text(page.title, style = Type.Title, fontSize = 22.sp)
                     IndexRow("Back to sections", modifier = Modifier.focusRequester(sectionBack), onClick = ::back)
                     Spacer(Modifier.height(4.dp))
-                    SectionSettings(page, state, weatherButton, vizButton)
+                    SectionSettings(page, state, Modifier.focusRequester(sectionFirst), weatherButton, vizButton)
                 }
             }
         }
@@ -310,22 +315,23 @@ private fun sectionSummary(section: MenuSection, state: LauncherState) = when (s
 private fun SectionSettings(
     section: MenuSection,
     state: LauncherState,
+    first: Modifier,
     weatherButton: FocusRequester,
     vizButton: FocusRequester,
 ) {
     when (section) {
         MenuSection.Wallpaper -> {
-            IndexRow("Change photo every", "${state.walls.rotateMinutes} min", onClick = state.walls::cycleRotateMinutes)
+            IndexRow("Change photo every", "${state.walls.rotateMinutes} min", modifier = first, onClick = state.walls::cycleRotateMinutes)
             IndexRow("Picture depth", PictureDepth.name(state.walls.pictureDepth), onClick = state.walls::cyclePictureDepth)
             IndexRow("Film grain", FilmGrain.name(state.walls.grainLevel), onClick = state.walls::cycleGrain)
             IndexRow("While music plays", MusicPoster.label(state.musicWallpaper), onClick = state::cycleMusicWallpaper)
         }
         MenuSection.Ambient -> {
-            IndexRow("Starts after", ambientTime(state), onClick = state::cycleAmbientMinutes)
+            IndexRow("Starts after", ambientTime(state), modifier = first, onClick = state::cycleAmbientMinutes)
             IndexRow("With music", musicMode(state), onClick = state::cycleMusicMode)
         }
         MenuSection.Look -> {
-            IndexRow("Theme", ThemeState.current.name, swatch = ThemeState.current.accent, onClick = state::cycleTheme)
+            IndexRow("Theme", ThemeState.current.name, modifier = first, swatch = ThemeState.current.accent, onClick = state::cycleTheme)
             IndexRow("Colours from the photo", onOff(state.artColors), onClick = state::toggleArtColors)
             IndexRow("Netflix button", state.remote.label, onClick = state.remote::cycle)
             if (state.remote.learning) Note("Press the Netflix button on the remote once so Ravine can learn it.")
@@ -335,8 +341,9 @@ private fun SectionSettings(
             IndexRow("Ad-blocking pill", if (state.showPrivacy) "Shown" else "Hidden", onClick = state::toggleShowPrivacy)
         }
         MenuSection.GameDay -> {
-            MyTeams.all.forEach { team ->
-                IndexRow(team.name, onOff(team.key in state.gameDay.teams), swatch = Color(team.color)) {
+            MyTeams.all.forEachIndexed { index, team ->
+                val modifier = if (index == 0) first else Modifier
+                IndexRow(team.name, onOff(team.key in state.gameDay.teams), modifier = modifier, swatch = Color(team.color)) {
                     state.gameDay.toggleTeam(team.key)
                 }
             }
@@ -353,14 +360,14 @@ private fun SectionSettings(
             )
         }
         MenuSection.Weather -> {
-            IndexRow("Weather", state.weatherPlace ?: "Set place", modifier = Modifier.focusRequester(weatherButton)) {
+            IndexRow("Weather", state.weatherPlace ?: "Set place", modifier = first.focusRequester(weatherButton)) {
                 state.weatherPicker = true
             }
         }
         MenuSection.Visualizer -> {
             when {
                 state.musicMode == "viz" -> IndexRow(
-                    "Visualizer settings", arrow = true, modifier = Modifier.focusRequester(vizButton),
+                    "Visualizer settings", arrow = true, modifier = first.focusRequester(vizButton),
                     onClick = { state.vizSettingsOpen = true },
                 )
                 !state.visualizerSupported -> Note("The visualizer isn't supported on this TV.")
@@ -369,17 +376,21 @@ private fun SectionSettings(
             }
         }
         MenuSection.Yak -> {
-            IndexRow("The Yak daily", onOff(state.shows.followYak), onClick = state.shows::toggleFollowYak)
+            IndexRow("The Yak daily", onOff(state.shows.followYak), modifier = first, onClick = state.shows::toggleFollowYak)
             IndexRow("Yak rewind", state.yakRewind.schedule.label, onClick = state.yakRewind::cycleSchedule)
             if (state.yakRewind.schedule != YakRewind.Schedule.OFF && !state.yakRewind.configured) {
                 Note("Push yak.properties over ADB to connect yak.campsapps.com.")
             }
         }
         MenuSection.Updates -> {
-            state.updates.release?.let { release ->
-                IndexRow("Update ready", state.updates.status ?: release.label, arrow = true, onClick = state.updates::install)
+            val release = state.updates.release
+            if (release != null) {
+                IndexRow("Update ready", state.updates.status ?: release.label, modifier = first, arrow = true, onClick = state.updates::install)
             }
-            IndexRow("Check for updates", updateStatus(state), onClick = state.updates::checkNow)
+            IndexRow(
+                "Check for updates", updateStatus(state), modifier = if (release == null) first else Modifier,
+                onClick = state.updates::checkNow,
+            )
             IndexRow("Install updates", if (state.updates.automatic) "Automatic" else "Ask", onClick = state.updates::toggleAutomatic)
         }
     }
