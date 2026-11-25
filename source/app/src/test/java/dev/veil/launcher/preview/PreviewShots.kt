@@ -58,6 +58,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLooper
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Renders Ravine's screens to PNGs at the Shield's UI size (1920x1080, density 2), so changes can be
@@ -72,6 +73,7 @@ class PreviewShots {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val outDir = File(System.getProperty("ravine.previewDir") ?: "previews")
+    private val logoRequests = ConcurrentHashMap.newKeySet<String>()
 
     @Before fun setUp() {
         assumeTrue("previews only with -Ppreviews", System.getProperty("ravine.previews") == "true")
@@ -89,6 +91,7 @@ class PreviewShots {
                     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
                         val data = chain.request.data.toString()
                         if ("/logo/" in data) {
+                            logoRequests.add(data)
                             // Stand-in team logo: a disc in the team's colour with its abbreviation.
                             val (abbr, hex) = data.substringAfterLast('/').substringBefore('.').split('-')
                             // Mirror Coil's requested decode size while keeping the fixture offline.
@@ -350,13 +353,51 @@ class PreviewShots {
     // Courtside's /api/tv/notable (ravine#22); the same shape as the unit-test fixture.
     private val notableJson = javaClass.getResourceAsStream("/courtside/tv-notable.json")!!.bufferedReader().readText()
 
-    private fun scoresState(detail: String = gameJson): LauncherState = newState().also { s ->
+    private fun standingsTeam(id: String, abbr: String, name: String, record: String, color: String, streak: String) =
+        """{"teamId":"$id","abbr":"$abbr","name":"$name","record":"$record","color":"#$color","streak":"$streak","logo":"https://preview/logo/$abbr-$color.png"}"""
+
+    private fun conferenceStandings(league: String, name: String, vararg rows: String) =
+        """{"league":"$league","standings":{"season":"2026","groups":[{"name":"$name","rows":[${rows.joinToString(",")}]}]}}"""
+
+    private val nflConference = conferenceStandings(
+        "NFL", "AFC",
+        standingsTeam("2", "BUF", "Bills", "9-2", "498DDE", "W4"),
+        standingsTeam("12", "KC", "Chiefs", "8-3", "EE6D76", "W2"),
+        standingsTeam("7", "DEN", "Broncos", "8-3", "F18B5A", "W1"),
+        standingsTeam("33", "BAL", "Ravens", "7-4", "9D85D9", "L1"),
+        standingsTeam("34", "HOU", "Texans", "7-4", "E36782", "W2"),
+        standingsTeam("24", "LAC", "Chargers", "6-5", "61AFDA", "L1"),
+        standingsTeam("13", "LV", "Raiders", "6-5", "A5ACAF", "W2"),
+        standingsTeam("23", "PIT", "Steelers", "5-6", "EAB24E", "L1"),
+        standingsTeam("17", "NE", "Patriots", "5-6", "7E92B5", "W1"),
+    )
+
+    private val nbaConference = conferenceStandings(
+        "NBA", "Western Conference",
+        standingsTeam("25", "OKC", "Thunder", "13-2", "55ADDD", "W6"),
+        standingsTeam("7", "DEN", "Nuggets", "11-4", "F6C557", "W2"),
+        standingsTeam("24", "SA", "Spurs", "10-5", "B6BBC4", "L1"),
+        standingsTeam("13", "LAL", "Lakers", "10-5", "F4C346", "W3"),
+        standingsTeam("10", "HOU", "Rockets", "9-6", "E36179", "W2"),
+        standingsTeam("16", "MIN", "Timberwolves", "9-6", "76BA80", "L1"),
+        standingsTeam("21", "PHX", "Suns", "8-7", "E98A55", "W1"),
+        standingsTeam("9", "GS", "Warriors", "8-7", "5495DB", "W2"),
+        standingsTeam("29", "MEM", "Grizzlies", "7-8", "7F9BC6", "L2"),
+        standingsTeam("12", "LAC", "Clippers", "6-9", "F37C8B", "W1"),
+        standingsTeam("6", "DAL", "Mavericks", "6-9", "76A8D8", "L1"),
+        standingsTeam("22", "POR", "Trail Blazers", "5-10", "EA806B", "L3"),
+    )
+
+    private fun scoresState(
+        detail: String = gameJson,
+        standings: Map<String, String> = mapOf("NFL" to standingsJson),
+    ): LauncherState = newState().also { s ->
         s.scores.forceAvailable = true
         s.scores.fetcher = { path ->
             when {
                 path.startsWith("/api/tv/scores") -> scoresJson
                 path.startsWith("/api/tv/game") -> detail
-                path.startsWith("/api/tv/standings") -> standingsJson
+                path.startsWith("/api/tv/standings") -> standings[path.substringAfter("league=")]
                 path.startsWith("/api/tv/notable") -> notableJson
                 else -> null
             }
@@ -369,6 +410,19 @@ class PreviewShots {
     @Test fun scoresNba() = shoot("scores-nba", scoresState()) { it.scores.show(); it.scores.selectTab("NBA") }
     @Test fun scoresNotable() = shoot("scores-notable", scoresState()) { it.scores.show(); it.scores.selectTab("Notable") }
     @Test fun scoresStandings() = shoot("scores-standings", scoresState()) { it.scores.show(); it.scores.selectTab("Standings") }
+    @Test fun scoresStandingsNfl() {
+        shoot("scores-standings-nfl", scoresState(standings = mapOf("NFL" to nflConference))) {
+            it.scores.show(); it.scores.selectTab("Standings")
+        }
+        assertTrue("The standings request the Bills logo", "https://preview/logo/BUF-498DDE.png" in logoRequests)
+    }
+
+    @Test fun scoresStandingsNba() {
+        shoot("scores-standings-nba", scoresState(standings = mapOf("NBA" to nbaConference))) {
+            it.scores.show(); it.scores.selectTab("Standings")
+        }
+        assertTrue("The standings request the Thunder logo", "https://preview/logo/OKC-55ADDD.png" in logoRequests)
+    }
     @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
         s.scores.show()
         s.scores.openGame(dev.veil.launcher.data.CourtsideScores.parseScores(scoresJson).first())

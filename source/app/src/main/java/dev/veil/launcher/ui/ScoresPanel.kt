@@ -68,6 +68,7 @@ import coil.request.ImageRequest
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.CourtsideScores.Score
+import dev.veil.launcher.data.MyTeams
 import dev.veil.launcher.data.YouTubeShows
 import dev.veil.launcher.state.ScoresState
 import kotlinx.coroutines.delay
@@ -147,7 +148,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
         else when (it.key) { Key.DirectionLeft -> { step(-1); true }; Key.DirectionRight -> { step(1); true }; else -> false }
     }
     if (s.tab == ScoresState.STANDINGS) {
-        StandingsView(s, firstRow, rowKeys)
+        StandingsView(s, state.gameDay.teams, firstRow, rowKeys)
     } else if (s.tab == ScoresState.NOTABLE) {
         NotableView(s, firstRow, rowKeys)
     } else {
@@ -293,8 +294,10 @@ private fun Tag(text: String) {
 }
 
 @Composable
-private fun TeamLogo(t: CourtsideScores.Team, size: Dp) {
-    val logo = t.logo
+private fun TeamLogo(t: CourtsideScores.Team, size: Dp) = TeamLogo(t.logo, Color(t.color), size)
+
+@Composable
+private fun TeamLogo(logo: String?, color: Color, size: Dp) {
     if (logo != null) {
         val context = LocalContext.current
         val request = remember(context, logo) {
@@ -308,31 +311,42 @@ private fun TeamLogo(t: CourtsideScores.Team, size: Dp) {
             modifier = Modifier.size(size),
         )
     } else {
-        Box(Modifier.size(size), contentAlignment = Alignment.Center) { Box(Modifier.size(size / 2).clip(CircleShape).background(Color(t.color))) }
+        Box(Modifier.size(size), contentAlignment = Alignment.Center) { Box(Modifier.size(size / 2).clip(CircleShape).background(color)) }
     }
 }
 
 // ---- Standings ----------------------------------------------------------------------------------------------
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(s: ScoresState, firstRow: FocusRequester, rowKeys: Modifier) {
+private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(
+    s: ScoresState, favoriteTeams: Set<String>, firstRow: FocusRequester, rowKeys: Modifier,
+) {
     LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
         if (s.standings.isEmpty()) item { NoteRow("Loading standings…", Modifier.focusRequester(firstRow).then(rowKeys)) }
         var first = true
-        s.standings.forEach { (league, st) ->
+        s.standings.forEachIndexed { leagueIndex, (league, st) ->
+            val favorites = MyTeams.all.filter { it.league.label == league && it.key in favoriteTeams }.associate { it.espnId to it.color }
             item(key = "l-$league") {
                 Text(
                     CourtsideScores.leagueLabel(league), style = Type.Title, fontSize = 12.sp,
-                    modifier = Modifier.padding(top = if (first) 6.dp else 16.dp),
+                    modifier = Modifier.padding(top = if (leagueIndex == 0) 6.dp else 16.dp),
                 )
             }
             st.groups.forEachIndexed { gi, group ->
+                val table = CourtsideScores.standingTable(league, group)
+                val firstGroup = first && table.rows.isNotEmpty()
+                if (firstGroup) first = false
                 item(key = "$league-g$gi") { Section(group.name) }
-                items(group.rows.size, key = { "$league-g$gi-$it" }) { ri ->
-                    val r = group.rows[ri]
-                    val m = if (first) Modifier.focusRequester(firstRow) else Modifier
-                    first = false
-                    StandingRow(ri + 1, r, m.then(rowKeys))
+                items(table.rows.size, key = { "$league-g$gi-$it" }) { ri ->
+                    val row = table.rows[ri]
+                    val place = ri + 1
+                    val m = if (firstGroup && ri == 0) Modifier.focusRequester(firstRow) else Modifier
+                    Column {
+                        StandingRow(place, row, row.teamId?.let(favorites::get), m.then(rowKeys))
+                        if (place in table.cutoffs) {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 2.dp).height(0.5.dp).background(Veil.Text.copy(alpha = 0.28f)))
+                        }
+                    }
                 }
             }
         }
@@ -398,24 +412,31 @@ private fun NotableRow(n: CourtsideScores.Notable, logoTeam: CourtsideScores.Tea
 }
 
 @Composable
-private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, modifier: Modifier) {
+private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, favoriteColor: Long?, modifier: Modifier) {
+    val team = (r.color ?: favoriteColor)?.let { Color(it) }
+    val favorite = team?.takeIf { favoriteColor != null }
+    val streak = if (r.streak?.startsWith("W", ignoreCase = true) == true) team ?: Dim else Dim
     Surface(
         onClick = {},
         modifier = modifier.fillMaxWidth(),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(5.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent, contentColor = Veil.Text,
-            focusedContainerColor = Veil.Text.copy(alpha = 0.09f), focusedContentColor = Veil.Text,
+            containerColor = favorite?.copy(alpha = 0.08f) ?: Color.Transparent, contentColor = Veil.Text,
+            focusedContainerColor = favorite?.copy(alpha = 0.16f) ?: Veil.Text.copy(alpha = 0.09f), focusedContentColor = Veil.Text,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("$place", style = Type.Value, fontSize = 8.sp, color = Dim, modifier = Modifier.width(16.dp))
-            Text(r.name, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1)
+            Box(Modifier.width(3.dp).height(11.dp).clip(RoundedCornerShape(1.dp)).background(team ?: Color.Transparent))
+            Spacer(Modifier.width(5.dp))
+            TeamLogo(r.logo, team ?: Dim, 10.dp)
+            Spacer(Modifier.width(6.dp))
+            Text(r.name, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(r.record, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
             Text(r.points?.let { "$it pts" } ?: r.gamesBack?.let { if (it == "-" || it == "0") "—" else "$it GB" } ?: "",
                 fontSize = 7.sp, color = Dim, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
-            Text(r.streak ?: "", fontSize = 7.sp, color = Dim, modifier = Modifier.width(30.dp), textAlign = TextAlign.End)
+            Text(r.streak ?: "", fontSize = 7.sp, color = streak, modifier = Modifier.width(30.dp), textAlign = TextAlign.End)
         }
     }
 }

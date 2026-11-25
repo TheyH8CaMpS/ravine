@@ -48,9 +48,16 @@ object CourtsideScores {
         val statLine: String, val context: String?, val onRoster: Boolean, val feed: String, val eventId: String,
     )
 
-    data class StandingRow(val abbr: String, val name: String, val record: String, val gamesBack: String?, val points: String?, val streak: String?)
+    data class StandingRow(
+        val abbr: String, val name: String, val record: String, val gamesBack: String?, val points: String?, val streak: String?,
+        val teamId: String? = null, val logo: String? = null, val color: Long? = null,
+    )
     data class StandingGroup(val name: String, val rows: List<StandingRow>)
     data class Standings(val season: String, val groups: List<StandingGroup>)
+    data class StandingTable(val rows: List<StandingRow>, val cutoffs: List<Int>)
+
+    private val footballConferences = setOf("afc", "nfc", "american football", "national football")
+    private val eastWestConferences = setOf("east", "west", "eastern", "western")
 
     /** Leagues in the order the tabs show them. */
     val LEAGUE_ORDER = listOf("NFL", "NBA", "NHL", "NCAAF", "MLB", "WNBA", "EPL", "MLS", "UFC")
@@ -60,8 +67,10 @@ object CourtsideScores {
         if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
     private fun JSONObject.str(key: String): String? = optString(key, "").takeIf { has(key) && !isNull(key) && it.isNotBlank() }
 
-    fun color(hex: String?): Long =
-        hex?.removePrefix("#")?.takeIf { it.length == 6 }?.toLongOrNull(16)?.let { 0xFF000000 or it } ?: 0xFFD8D8DC
+    private fun argb(hex: String?): Long? =
+        hex?.removePrefix("#")?.takeIf { it.length == 6 }?.toLongOrNull(16)?.takeIf { it >= 0 }?.let { 0xFF000000 or it }
+
+    fun color(hex: String?): Long = argb(hex) ?: 0xFFD8D8DC
 
     fun startMs(iso: String?): Long = runCatching {
         // ESPN times can omit seconds ("2026-11-22T21:25Z").
@@ -135,10 +144,28 @@ object CourtsideScores {
             s.optString("season"),
             s.optJSONArray("groups").objects().map { g ->
                 StandingGroup(g.optString("name"), g.optJSONArray("rows").objects().map { r ->
-                    StandingRow(r.optString("abbr"), r.optString("name"), r.optString("record"), r.str("gamesBack"), r.str("points"), r.str("streak"))
+                    StandingRow(
+                        r.optString("abbr"), r.optString("name"), r.optString("record"), r.str("gamesBack"), r.str("points"), r.str("streak"),
+                        teamId = r.str("teamId"), logo = r.str("logo"), color = argb(r.str("color")),
+                    )
                 })
             },
         )
+    }
+
+    /** Boundaries separate conference seeds. Divisions and tables ending at the boundary have no line. */
+    fun standingTable(league: String, group: StandingGroup): StandingTable {
+        val conference = group.name.trim().lowercase().removeSuffix(" conference")
+        val cutoffs = when {
+            league == "NFL" && conference in footballConferences -> listOf(7)
+            league == "NBA" && conference in eastWestConferences -> listOf(6, 10)
+            league == "NHL" && conference in eastWestConferences -> listOf(8)
+            else -> emptyList()
+        }
+        val rows = if (league == "NHL" && cutoffs.isNotEmpty() && group.rows.all { it.points?.toIntOrNull() != null }) {
+            group.rows.sortedByDescending { it.points?.toIntOrNull() }
+        } else group.rows
+        return StandingTable(rows, cutoffs.filter { it < rows.size })
     }
 
     /**

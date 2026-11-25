@@ -46,6 +46,52 @@ class CourtsideScoresTest {
         assertNull(CourtsideScores.parseStandings("""{"league":"NFL","standings":null}"""))
     }
 
+    @Test fun parsesOptionalStandingsBranding() {
+        val standings = CourtsideScores.parseStandings(
+            """{"standings":{"groups":[{"name":"AFC West","rows":[
+               {"teamId":"7","name":"Broncos","color":"#f18b5a","logo":"https://preview/logo/den.png"},
+               {"teamId":"13","name":"Raiders","color":"not a colour","logo":null},
+               {"name":"Chiefs"}]}]}}""",
+        )!!
+        val (branded, noBrand, old) = standings.groups.single().rows
+        assertEquals("7", branded.teamId)
+        assertEquals("https://preview/logo/den.png", branded.logo)
+        assertEquals(0xFFF18B5AL, branded.color)
+        assertEquals("13", noBrand.teamId)
+        assertNull(noBrand.logo)
+        assertNull(noBrand.color)
+        assertNull(old.teamId)
+        assertNull(old.logo)
+        assertNull(old.color)
+    }
+
+    @Test fun drawsCutoffsForConferenceSeedsOnly() {
+        val team = CourtsideScores.StandingRow("ABC", "Fixture team", "8-2", null, null, null)
+        fun cutoffs(league: String, name: String, rows: Int = 16) =
+            CourtsideScores.standingTable(league, CourtsideScores.StandingGroup(name, List(rows) { team })).cutoffs
+
+        assertEquals(listOf(7), cutoffs("NFL", "AFC"))
+        assertEquals(listOf(7), cutoffs("NFL", "National Football Conference"))
+        assertTrue(cutoffs("NFL", "AFC West").isEmpty())
+        assertTrue(cutoffs("NFL", "AFC", rows = 7).isEmpty())
+        assertEquals(listOf(6, 10), cutoffs("NBA", "Western Conference"))
+        assertEquals(listOf(6), cutoffs("NBA", "East", rows = 10))
+        assertTrue(cutoffs("NBA", "Atlantic Division").isEmpty())
+        assertTrue(cutoffs("MLB", "West").isEmpty())
+    }
+
+    @Test fun ranksNhlConferenceTeamsByPoints() {
+        val teams = (1..9).map { points ->
+            CourtsideScores.StandingRow("ABC", "Team $points", "8-2", null, points.toString(), null)
+        }
+        val conference = CourtsideScores.standingTable("NHL", CourtsideScores.StandingGroup("Eastern Conference", teams))
+        assertEquals(teams.reversed(), conference.rows)
+        assertEquals(listOf(8), conference.cutoffs)
+        val division = CourtsideScores.standingTable("NHL", CourtsideScores.StandingGroup("Atlantic", teams))
+        assertEquals(teams, division.rows)
+        assertTrue(division.cutoffs.isEmpty())
+    }
+
     @Test fun periodLabels() {
         assertEquals("Q3", CourtsideScores.periodLabel("NFL", "3"))
         assertEquals("OT", CourtsideScores.periodLabel("NBA", "5"))
