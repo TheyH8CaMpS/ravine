@@ -230,7 +230,12 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    QuickAction("Next photo", state.walls.current?.title?.takeIf(String::isNotBlank), Modifier.weight(1f).focusRequester(first), state.walls::next)
+                    QuickAction(
+                        "Next photo",
+                        state.walls.current?.title?.takeIf(String::isNotBlank)?.let { "Now: $it" },
+                        Modifier.weight(1f).focusRequester(first),
+                        state.walls::next,
+                    )
                     QuickAction("Start Ambient now", null, Modifier.weight(1f), state::startAmbient)
                     QuickAction("Score alerts", AlertEngine.Settings.label(state.alertMode), Modifier.weight(1f), state::cycleAlertMode)
                 }
