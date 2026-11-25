@@ -117,7 +117,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
     Eyebrow("Courtside")
     Text("Scores", style = Type.Title, fontSize = 18.sp, lineHeight = 24.sp, modifier = Modifier.padding(top = 3.dp))
     Text(
-        java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d")),
+        java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d")) +
+            if (s.updating) "  ·  Updating…" else "",
         style = Type.Body, fontSize = 8.sp, color = Dim,
     )
     val tabs = s.tabs

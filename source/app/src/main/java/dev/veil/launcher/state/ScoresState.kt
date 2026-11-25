@@ -11,11 +11,30 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.LocalDate
+import java.time.ZoneId
 
-/** The Scores panel (PROJECT.md D49): Courtside's scoreboard, a game's page and standings. */
-class ScoresState(private val context: Context, private val scope: CoroutineScope) {
+/**
+ * The Scores panel (PROJECT.md D49): Courtside's scoreboard, a game's page and standings.
+ * The last good scoreboard is kept in memory and on disk ([cache]) for the same Pacific day, so the panel shows
+ * it the moment it opens, with "Updating…", while the fresh one loads (ravine#19). An earlier day's is never shown.
+ */
+class ScoresState internal constructor(
+    private val scope: CoroutineScope,
     /** Courtside GET; replaced in previews and tests. Returns the body, or null on any failure. */
-    internal var fetcher: (String) -> String? = { path -> CourtsideGuide.get(context, path) }
+    internal var fetcher: (String) -> String?,
+    private val configured: () -> Boolean,
+    private val cache: ScoresCache,
+    /** Today in Courtside's zone; replaced in tests. */
+    internal var today: () -> LocalDate = { LocalDate.now(ZONE) },
+) {
+    constructor(context: Context, scope: CoroutineScope) : this(
+        scope,
+        fetcher = { path -> CourtsideGuide.get(context, path) },
+        configured = { CourtsideGuide.configured(context) },
+        cache = ScoresCache(File(context.filesDir, "courtside-scores.json")),
+    )
 
     /** The Scores button shows once Courtside is set up on this TV and its scores route has answered. */
     val available: Boolean get() = forceAvailable ?: reachable
@@ -29,16 +48,13 @@ class ScoresState(private val context: Context, private val scope: CoroutineScop
         lastProbe = now
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
-                runCatching { CourtsideGuide.configured(context) && fetcher(scoresPath())?.let { CourtsideScores.parseScores(it) } != null }.getOrDefault(false)
+                runCatching { configured() && fetcher(scoresPath())?.let { CourtsideScores.parseScores(it) } != null }.getOrDefault(false)
             }
             if (ok) reachable = true
         }
     }
 
-    private fun scoresPath(): String {
-        val zone = "America/Los_Angeles"
-        return "/api/tv/scores?date=${java.time.LocalDate.now(java.time.ZoneId.of(zone))}&zone=$zone"
-    }
+    private fun scoresPath(day: LocalDate = today()): String = "/api/tv/scores?date=$day&zone=${ZONE.id}"
 
     var open by mutableStateOf(false)
         private set
@@ -48,6 +64,11 @@ class ScoresState(private val context: Context, private val scope: CoroutineScop
         private set
     var failed by mutableStateOf(false)
         private set
+    /** True while the games on screen are a cached copy and the fresh scoreboard is still on its way. */
+    var updating by mutableStateOf(false)
+        private set
+    /** The Pacific day [games] belong to. */
+    private var gamesDay: LocalDate? = null
 
     /** Tabs: Your teams, each league playing today, Standings. */
     val tabs: List<String> get() =
@@ -67,7 +88,23 @@ class ScoresState(private val context: Context, private val scope: CoroutineScop
         private set
     private var standingsLoaded = 0L
 
-    fun show() { open = true; game = null; detail = null; refresh() }
+    fun show() {
+        open = true; game = null; detail = null
+        restoreToday()
+        refresh()
+    }
+
+    /** Before the network answers: keep today's games in memory, else today's copy on disk; drop an earlier day's. */
+    private fun restoreToday() {
+        val day = today()
+        if (gamesDay == day && games.isNotEmpty()) { updating = true; return }
+        val cached = runCatching { cache.load(day)?.let { CourtsideScores.parseScores(it) } }.getOrNull()
+        games = cached ?: emptyList()
+        gamesDay = if (cached != null) day else null
+        updating = cached != null
+        failed = false
+        if (tab !in tabs) tab = YOURS
+    }
     fun close() { if (open) closedTick++; open = false; game = null; detail = null }
 
     /** Bumped on each close, so the top bar can put focus back on the Scores button. */
@@ -80,13 +117,19 @@ class ScoresState(private val context: Context, private val scope: CoroutineScop
     fun refresh() {
         if (loading) return
         loading = true
+        val day = today()
         scope.launch {
-            val text = withContext(Dispatchers.IO) { runCatching { fetcher(scoresPath()) }.getOrNull() }
-            val parsed = text?.let { runCatching { CourtsideScores.parseScores(it) }.getOrNull() }
+            val parsed = withContext(Dispatchers.IO) {
+                val text = runCatching { fetcher(scoresPath(day)) }.getOrNull()
+                text?.let { runCatching { CourtsideScores.parseScores(it) }.getOrNull() }
+                    ?.also { runCatching { cache.save(day, text) } }
+            }
             loading = false
+            updating = false
             failed = parsed == null && games.isEmpty()
             if (parsed != null) {
                 games = parsed
+                gamesDay = day
                 game = game?.let { g -> parsed.firstOrNull { it.id == g.id } ?: g }
             }
             if (tab !in tabs) tab = YOURS
@@ -136,5 +179,24 @@ class ScoresState(private val context: Context, private val scope: CoroutineScop
     companion object {
         const val YOURS = "Your teams"
         const val STANDINGS = "Standings"
+        val ZONE: ZoneId = ZoneId.of("America/Los_Angeles")
+    }
+}
+
+/** The last good `/api/tv/scores` body on disk, tagged with its day: first line the date, then the body. */
+class ScoresCache(private val file: File) {
+    fun save(day: LocalDate, body: String) {
+        val tmp = File(file.path + ".tmp")
+        tmp.writeText("$day\n$body")
+        if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+    }
+
+    /** The body saved for [day], or null if there is none or it is from another day. */
+    fun load(day: LocalDate): String? {
+        if (!file.exists()) return null
+        val text = file.readText()
+        val nl = text.indexOf('\n')
+        if (nl < 0 || text.substring(0, nl) != day.toString()) return null
+        return text.substring(nl + 1)
     }
 }
