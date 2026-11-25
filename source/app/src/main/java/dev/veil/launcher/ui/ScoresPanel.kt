@@ -80,6 +80,11 @@ private val Live = Color(0xFFE07A5F)
 private val Dim get() = Veil.Text.copy(alpha = 0.55f)
 private val Faint get() = Veil.Text.copy(alpha = 0.12f)
 
+internal object ScoreLogoStyle {
+    const val decodeSizePx = 128
+    val filterQuality = FilterQuality.High
+}
+
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ScoresPanel(state: LauncherState) {
@@ -289,8 +294,19 @@ private fun Tag(text: String) {
 
 @Composable
 private fun TeamLogo(t: CourtsideScores.Team, size: Dp) {
-    if (t.logo != null) {
-        AsyncImage(model = t.logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(size))
+    val logo = t.logo
+    if (logo != null) {
+        val context = LocalContext.current
+        val request = remember(context, logo) {
+            ImageRequest.Builder(context).data(logo).size(ScoreLogoStyle.decodeSizePx).build()
+        }
+        AsyncImage(
+            model = request,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            filterQuality = ScoreLogoStyle.filterQuality,
+            modifier = Modifier.size(size),
+        )
     } else {
         Box(Modifier.size(size), contentAlignment = Alignment.Center) { Box(Modifier.size(size / 2).clip(CircleShape).background(Color(t.color))) }
     }
@@ -332,14 +348,16 @@ private fun androidx.compose.foundation.layout.ColumnScope.NotableView(s: Scores
         items(s.notable.size, key = { "n-$it" }) { i ->
             val n = s.notable[i]
             val m = if (i == 0) Modifier.focusRequester(firstRow) else Modifier
-            NotableRow(n, m.then(rowKeys)) { Sfx.open(); s.openNotable(n) }
+            val logoTeam = s.games.firstOrNull { it.feed == n.feed && it.eventId == n.eventId }
+                ?.teams?.firstOrNull { it.abbr.equals(n.team, ignoreCase = true) && it.logo != null }
+            NotableRow(n, logoTeam, m.then(rowKeys)) { Sfx.open(); s.openNotable(n) }
         }
     }
 }
 
 /** Label, player and team, then the stat line as the focus; a thin team-colour bar, and a soft wash when focused. */
 @Composable
-private fun NotableRow(n: CourtsideScores.Notable, modifier: Modifier, onClick: () -> Unit) {
+private fun NotableRow(n: CourtsideScores.Notable, logoTeam: CourtsideScores.Team?, modifier: Modifier, onClick: () -> Unit) {
     val team = Color(n.teamColor)
     Surface(
         onClick = onClick,
@@ -364,6 +382,10 @@ private fun NotableRow(n: CourtsideScores.Notable, modifier: Modifier, onClick: 
                 )
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(n.name, fontSize = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    if (logoTeam != null) {
+                        Spacer(Modifier.width(5.dp))
+                        TeamLogo(logoTeam, 8.dp)
+                    }
                     Text("  ${n.team}", fontSize = 7.sp, color = Dim, maxLines = 1)
                 }
                 Text(n.statLine, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
