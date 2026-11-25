@@ -106,6 +106,15 @@ class CourtsideScoresTest {
         assertTrue(CourtsideScores.parseNotable("[]").isEmpty())
     }
 
+    @Test fun highlightThumbnailUsesOnlyAValidVideoId() {
+        val id = "AZ09abCde_-"
+        val highlight = CourtsideScores.Highlight("Title is ignored", id)
+        assertEquals("https://i.ytimg.com/vi/$id/mqdefault.jpg", highlight.thumbnailUrl())
+        listOf("", "fixture000", "fixture00001", "AZ09abCde?/", " $id", "$id\n").forEach { invalid ->
+            assertNull(highlight.copy(videoId = invalid).thumbnailUrl())
+        }
+    }
+
     @Test fun parsesUpToThreeValidHighlightVideos() {
         val detail = CourtsideScores.parseDetail(
             """{"highlights":[

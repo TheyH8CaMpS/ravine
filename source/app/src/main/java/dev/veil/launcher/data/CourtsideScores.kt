@@ -32,7 +32,10 @@ object CourtsideScores {
     data class Compare(val label: String, val values: List<String>, val bars: List<Int>?, val winner: String?)
     data class Performer(val teamId: String, val label: String, val athlete: String, val line: String)
     data class Moment(val teamId: String?, val period: String, val clock: String, val text: String, val score: String?)
-    data class Highlight(val title: String, val videoId: String)
+    data class Highlight(val title: String, val videoId: String) {
+        fun thumbnailUrl(): String? =
+            if (videoIdPattern.matches(videoId)) "https://i.ytimg.com/vi/$videoId/mqdefault.jpg" else null
+    }
     data class Detail(
         val teamIds: List<String>, val compare: List<Compare>, val performers: List<Performer>, val moments: List<Moment>,
         val highlights: List<Highlight> = emptyList(),
