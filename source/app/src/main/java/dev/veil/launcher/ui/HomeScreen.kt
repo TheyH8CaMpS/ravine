@@ -526,7 +526,13 @@ private fun doneByText(minutes: Int, now: Long): String {
 /** Lets Home return focus to this item later, and records it as the last one used (and which row it's in). */
 private fun Modifier.remembered(state: LauncherState, key: String, focusKey: (String) -> FocusRequester): Modifier =
     this.focusRequester(focusKey(key)).onFocusChanged {
-        if (it.isFocused) { state.lastFocusKey = key; state.focusArea = key.substringBefore(':') }
+        if (it.isFocused) {
+            state.lastFocusKey = key
+            state.focusArea = key.substringBefore(':')
+        } else if (state.focusArea == "cw" && state.lastFocusKey == key) {
+            // Top-bar controls do not record a Home focus key, so clear the show's active area on blur.
+            state.focusArea = ""
+        }
     }
 
 /**
