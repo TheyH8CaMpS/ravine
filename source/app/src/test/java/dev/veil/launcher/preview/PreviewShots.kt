@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.layout.LayoutModifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
@@ -31,9 +32,10 @@ import coil.Coil
 import coil.ImageLoader
 import coil.decode.DataSource
 import coil.intercept.Interceptor
+import coil.request.ImageRequest
 import coil.request.ImageResult
 import coil.request.SuccessResult
-import coil.size.Dimension
+import coil.size.Precision
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.AppEntry
 import dev.veil.launcher.data.CourtsideScores
@@ -73,7 +75,8 @@ class PreviewShots {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val outDir = File(System.getProperty("ravine.previewDir") ?: "previews")
-    private val logoRequests = ConcurrentHashMap.newKeySet<String>()
+    private val logoRequests = ConcurrentHashMap<String, ImageRequest>()
+    private val logoFiles = ConcurrentHashMap<String, File>()
 
     @Before fun setUp() {
         assumeTrue("previews only with -Ppreviews", System.getProperty("ravine.previews") == "true")
@@ -91,19 +94,10 @@ class PreviewShots {
                     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
                         val data = chain.request.data.toString()
                         if ("/logo/" in data) {
-                            logoRequests.add(data)
-                            // Stand-in team logo: a disc in the team's colour with its abbreviation.
-                            val (abbr, hex) = data.substringAfterLast('/').substringBefore('.').split('-')
-                            // Mirror Coil's requested decode size while keeping the fixture offline.
-                            val size = (chain.size.width as? Dimension.Pixels)?.px ?: 64
-                            val b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-                            val c = android.graphics.Canvas(b)
-                            c.scale(size / 64f, size / 64f)
-                            val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-                            p.color = android.graphics.Color.parseColor("#$hex"); c.drawCircle(32f, 32f, 30f, p)
-                            p.color = android.graphics.Color.WHITE; p.textSize = 22f; p.textAlign = android.graphics.Paint.Align.CENTER
-                            p.isFakeBoldText = true; c.drawText(abbr, 32f, 40f, p)
-                            return SuccessResult(BitmapDrawable(context.resources, b), chain.request, DataSource.MEMORY)
+                            logoRequests[data] = chain.request
+                            val file = logoFiles.computeIfAbsent(data) { logoFixture(it) }
+                            // The preview window is captured on a software canvas.
+                            return chain.proceed(chain.request.newBuilder().data(file).allowHardware(false).build())
                         }
                         val bmp = when {
                             "/vi/fixture0001/" in data || "lakers" in data -> lakers
@@ -123,6 +117,25 @@ class PreviewShots {
         context.getSharedPreferences("ravine_wallpapers", Context.MODE_PRIVATE).edit().putString("feed", "http://127.0.0.1:9/none").commit()
         context.getSharedPreferences("veil", Context.MODE_PRIVATE).edit()
             .putString("pins", APPS.joinToString("|") { it.first }).commit()
+    }
+
+    /** Use the same high-resolution source for every decode size, without fetching team artwork. */
+    private fun logoFixture(data: String): File {
+        val (abbr, hex) = data.substringAfterLast('/').substringBefore('.').split('-')
+        val bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.scale(8f, 8f)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = android.graphics.Color.parseColor("#$hex")
+        canvas.drawCircle(32f, 32f, 30f, paint)
+        paint.color = android.graphics.Color.WHITE
+        paint.textSize = 22f
+        paint.textAlign = Paint.Align.CENTER
+        paint.isFakeBoldText = true
+        canvas.drawText(abbr, 32f, 40f, paint)
+        return File.createTempFile("preview-logo-", ".png", context.cacheDir).also { file ->
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
     }
 
     private fun photo(name: String): Bitmap =
@@ -193,7 +206,11 @@ class PreviewShots {
         val bmp = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         // Coil's crossfade starts timing at the first draw: draw once, let 1.5 s pass, then capture.
         compose.runOnUiThread { view.draw(Canvas(bmp)) }
-        repeat(15) { ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS); compose.mainClock.advanceTimeBy(100) }
+        repeat(15) {
+            Thread.sleep(15)
+            ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            compose.mainClock.advanceTimeBy(100)
+        }
         compose.runOnUiThread { bmp.eraseColor(0); view.draw(Canvas(bmp)) }
         File(outDir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
@@ -405,7 +422,16 @@ class PreviewShots {
     }
 
     @Test fun scoresButton() = shoot("scores-button", scoresState())
-    @Test fun scoresList() = shoot("scores-list", scoresState()) { it.scores.show() }
+    @Test fun scoresList() {
+        shoot("scores-list", scoresState()) { it.scores.show() }
+        val requests = logoRequests.values.toList()
+        assertTrue("Scores requests the fixture team logos", requests.isNotEmpty())
+        for (request in requests) {
+            assertEquals(Precision.EXACT, request.precision)
+            assertTrue("Logo size comes from layout constraints", request.defined.sizeResolver is LayoutModifier)
+            assertEquals("26", request.parameters.memoryCacheKey("score_logo_size"))
+        }
+    }
     @Test fun scoresNfl() = shoot("scores-nfl", scoresState()) { it.scores.show(); it.scores.selectTab("NFL") }
     @Test fun scoresNba() = shoot("scores-nba", scoresState()) { it.scores.show(); it.scores.selectTab("NBA") }
     @Test fun scoresNotable() = shoot("scores-notable", scoresState()) { it.scores.show(); it.scores.selectTab("Notable") }
@@ -414,14 +440,14 @@ class PreviewShots {
         shoot("scores-standings-nfl", scoresState(standings = mapOf("NFL" to nflConference))) {
             it.scores.show(); it.scores.selectTab("Standings")
         }
-        assertTrue("The standings request the Bills logo", "https://preview/logo/BUF-498DDE.png" in logoRequests)
+        assertTrue("The standings request the Bills logo", "https://preview/logo/BUF-498DDE.png" in logoRequests.keys)
     }
 
     @Test fun scoresStandingsNba() {
         shoot("scores-standings-nba", scoresState(standings = mapOf("NBA" to nbaConference))) {
             it.scores.show(); it.scores.selectTab("Standings")
         }
-        assertTrue("The standings request the Thunder logo", "https://preview/logo/OKC-55ADDD.png" in logoRequests)
+        assertTrue("The standings request the Thunder logo", "https://preview/logo/OKC-55ADDD.png" in logoRequests.keys)
     }
     @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
         s.scores.show()
