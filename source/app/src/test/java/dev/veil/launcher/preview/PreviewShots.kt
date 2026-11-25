@@ -53,6 +53,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -256,6 +257,21 @@ class PreviewShots {
 
     // The menu normally opens when its wordmark has focus; here it's opened directly once Home has settled.
     @Test fun menu() = shoot("menu", newState()) { it.veilMenuOpen = true }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun menuNextPhotoShowsTheCurrentPhoto() {
+        val state = newState()
+        shoot("menu-next-photo", state) { it.veilMenuOpen = true }
+        val before = requireNotNull(state.walls.current)
+        val nextPhoto = hasText("Next photo") and hasClickAction()
+        compose.onNode(nextPhoto and hasText("Now: ${before.title}"))
+            .assertIsFocused().performKeyInput { pressKey(Key.DirectionCenter) }
+        compose.mainClock.advanceTimeBy(150)
+
+        val after = requireNotNull(state.walls.current)
+        assertNotEquals(before.url, after.url)
+        compose.onNode(nextPhoto and hasText("Now: ${after.title}")).assertIsDisplayed()
+    }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun menuSections() {
