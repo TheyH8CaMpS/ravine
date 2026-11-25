@@ -17,11 +17,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.layout.LayoutModifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -36,6 +39,7 @@ import coil.request.ImageRequest
 import coil.request.ImageResult
 import coil.request.SuccessResult
 import coil.size.Precision
+import coil.size.Size
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.AppEntry
 import dev.veil.launcher.data.CourtsideScores
@@ -77,6 +81,7 @@ class PreviewShots {
     private val outDir = File(System.getProperty("ravine.previewDir") ?: "previews")
     private val logoRequests = ConcurrentHashMap<String, ImageRequest>()
     private val logoFiles = ConcurrentHashMap<String, File>()
+    @Volatile private var homeBackdropRequest: String? = null
 
     @Before fun setUp() {
         assumeTrue("previews only with -Ppreviews", System.getProperty("ravine.previews") == "true")
@@ -93,6 +98,8 @@ class PreviewShots {
                 add(object : Interceptor {
                     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
                         val data = chain.request.data.toString()
+                        // Observe the displayed backdrop, excluding wallpaper prefetches with no target.
+                        if (chain.size == Size(1920, 1080) && chain.request.target != null) homeBackdropRequest = data
                         if ("/logo/" in data) {
                             logoRequests[data] = chain.request
                             val file = logoFiles.computeIfAbsent(data) { logoFixture(it) }
@@ -216,6 +223,33 @@ class PreviewShots {
     }
 
     @Test fun home() = shoot("home", newState())
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun homeBackdropFollowsContinueWatchingFocus() {
+        val state = newState()
+        val wallpaper = requireNotNull(state.walls.current).url
+        val watch = state.items.single()
+        val dockLabels = state.pinnedApps.map { hasText(it.label) }.reduce { left, right -> left or right }
+        shoot("home-backdrop-focus", state)
+
+        val dock = compose.onNode(dockLabels and hasClickAction() and isFocused())
+        val card = compose.onNode(hasText(watch.title) and hasClickAction())
+        val topBar = compose.onNode(hasContentDescription("Menu") and hasClickAction())
+        fun move(from: SemanticsNodeInteraction, direction: Key, to: SemanticsNodeInteraction, backdrop: String) {
+            from.assertIsFocused().performKeyInput { pressKey(direction) }
+            compose.mainClock.advanceTimeBy(800)
+            to.assertIsFocused()
+            compose.waitUntil(conditionDescription = "Home requests the expected backdrop after $direction", timeoutMillis = 2_000) {
+                homeBackdropRequest == backdrop
+            }
+        }
+
+        val show = requireNotNull(watch.backdrop)
+        move(dock, Key.DirectionUp, card, show)
+        move(card, Key.DirectionDown, dock, wallpaper)
+        move(dock, Key.DirectionUp, card, show)
+        move(card, Key.DirectionUp, topBar, wallpaper)
+    }
 
     /** Nothing in progress: no Continue Watching row (owner, minimalist). */
     @Test fun homeEmpty() = shoot("home-empty", newState()) { it.items = emptyList() }
