@@ -98,14 +98,14 @@ class ScoresStateTest {
         val asked = mutableListOf<String>()
         val s = notableState(mapOf("2026-11-25" to "[]", "2026-11-24" to line), asked)
         s.show()
-        waitUntil { s.notable.isNotEmpty() }
+        waitUntil { s.notableLabel == "Last night" && s.games.isNotEmpty() }
         assertEquals("Last night", s.notableLabel)
         assertEquals(listOf("Luka Doncic"), s.notable.map { it.name })
         assertEquals(
             listOf("/api/tv/notable?date=2026-11-25&zone=America/Los_Angeles", "/api/tv/notable?date=2026-11-24&zone=America/Los_Angeles"),
             asked.filter { it.startsWith("/api/tv/notable") },
         )
-        assertEquals(ScoresState.NOTABLE, s.tabs[1])
+        assertEquals(listOf(ScoresState.YOURS, "NBA", ScoresState.NOTABLE, ScoresState.STANDINGS), s.tabs)
     }
 
     @Test fun notableUsesTodayWhenItHasLines() {

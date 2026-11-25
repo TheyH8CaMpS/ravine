@@ -70,9 +70,12 @@ class ScoresState internal constructor(
     /** The Pacific day [games] belong to. */
     private var gamesDay: LocalDate? = null
 
-    /** Tabs: Your teams, Notable (when Courtside has lines), each league playing today, Standings. */
+    /** Tabs: Your teams, each league playing today, Notable (when Courtside has lines), Standings. */
     val tabs: List<String> get() =
-        listOf(YOURS) + (if (notable.isNotEmpty()) listOf(NOTABLE) else emptyList()) + CourtsideScores.LEAGUE_ORDER.filter { l -> games.any { it.league == l } } + STANDINGS
+        listOf(YOURS) +
+            CourtsideScores.LEAGUE_ORDER.filter { l -> games.any { it.league == l } } +
+            (if (notable.isNotEmpty()) listOf(NOTABLE) else emptyList()) +
+            STANDINGS
     var tab by mutableStateOf(YOURS)
 
     fun gamesFor(tab: String): List<Score> = if (tab == YOURS) games.filter { it.favorite } else games.filter { it.league == tab }
