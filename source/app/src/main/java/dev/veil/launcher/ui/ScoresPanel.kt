@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -65,6 +66,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.size.Precision
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.CourtsideScores.Score
@@ -82,7 +84,7 @@ private val Dim get() = Veil.Text.copy(alpha = 0.55f)
 private val Faint get() = Veil.Text.copy(alpha = 0.12f)
 
 internal object ScoreLogoStyle {
-    const val decodeSizePx = 128
+    val precision = Precision.EXACT
     val filterQuality = FilterQuality.High
 }
 
@@ -243,7 +245,7 @@ private fun GameRow(g: Score, context: android.content.Context, modifier: Modifi
                             Box(Modifier.width(3.dp).height(11.dp).clip(RoundedCornerShape(1.dp)).background(Color(c).copy(alpha = a)))
                             Spacer(Modifier.width(5.dp))
                         }
-                        TeamLogo(t, 11.dp)
+                        TeamLogo(t, 13.dp, slotHeight = 11.dp)
                         Spacer(Modifier.width(6.dp))
                         Text(
                             t.name, fontSize = 8.5.sp, fontWeight = if (t.result == "loss") FontWeight.Medium else FontWeight.SemiBold,
@@ -294,24 +296,34 @@ private fun Tag(text: String) {
 }
 
 @Composable
-private fun TeamLogo(t: CourtsideScores.Team, size: Dp) = TeamLogo(t.logo, Color(t.color), size)
+private fun TeamLogo(t: CourtsideScores.Team, size: Dp, slotHeight: Dp = size) =
+    TeamLogo(t.logo, Color(t.color), size, slotHeight)
 
 @Composable
-private fun TeamLogo(logo: String?, color: Color, size: Dp) {
+private fun TeamLogo(logo: String?, color: Color, size: Dp, slotHeight: Dp = size) {
+    // Keep list rows at their existing height while the logo draws in the surrounding space.
+    val modifier = Modifier.size(width = size, height = slotHeight).requiredSize(size)
     if (logo != null) {
         val context = LocalContext.current
-        val request = remember(context, logo) {
-            ImageRequest.Builder(context).data(logo).size(ScoreLogoStyle.decodeSizePx).build()
+        val sizePx = with(LocalDensity.current) { size.roundToPx() }
+        val request = remember(context, logo, sizePx) {
+            ImageRequest.Builder(context)
+                .data(logo)
+                .precision(ScoreLogoStyle.precision)
+                .setParameter("score_logo_size", sizePx)
+                .build()
         }
         AsyncImage(
             model = request,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             filterQuality = ScoreLogoStyle.filterQuality,
-            modifier = Modifier.size(size),
+            modifier = modifier,
         )
     } else {
-        Box(Modifier.size(size), contentAlignment = Alignment.Center) { Box(Modifier.size(size / 2).clip(CircleShape).background(color)) }
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Box(Modifier.size(slotHeight / 2).clip(CircleShape).background(color))
+        }
     }
 }
 
@@ -398,7 +410,7 @@ private fun NotableRow(n: CourtsideScores.Notable, logoTeam: CourtsideScores.Tea
                     Text(n.name, fontSize = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                     if (logoTeam != null) {
                         Spacer(Modifier.width(5.dp))
-                        TeamLogo(logoTeam, 8.dp)
+                        TeamLogo(logoTeam, 10.dp, slotHeight = 8.dp)
                     }
                     Text("  ${n.team}", fontSize = 7.sp, color = Dim, maxLines = 1)
                 }
@@ -430,7 +442,7 @@ private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, favoriteColo
             Text("$place", style = Type.Value, fontSize = 8.sp, color = Dim, modifier = Modifier.width(16.dp))
             Box(Modifier.width(3.dp).height(11.dp).clip(RoundedCornerShape(1.dp)).background(team ?: Color.Transparent))
             Spacer(Modifier.width(5.dp))
-            TeamLogo(r.logo, team ?: Dim, 10.dp)
+            TeamLogo(r.logo, team ?: Dim, 12.dp, slotHeight = 10.dp)
             Spacer(Modifier.width(6.dp))
             Text(r.name, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(r.record, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
