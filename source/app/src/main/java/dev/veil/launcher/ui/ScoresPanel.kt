@@ -200,13 +200,15 @@ private fun NoteRow(text: String, modifier: Modifier) {
 
 @Composable
 private fun GameRow(g: Score, context: android.content.Context, modifier: Modifier, onClick: () -> Unit) {
+    val colors = CourtsideScores.rowColors(g)
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().padding(vertical = 1.dp).focusSound(1f),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(7.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent, contentColor = Veil.Text,
-            focusedContainerColor = Veil.Text.copy(alpha = 0.09f), focusedContentColor = Veil.Text,
+            // Only the focused row takes a tint, from the home team's colour (ravine#20).
+            focusedContainerColor = Color(colors.focusTint).copy(alpha = 0.06f), focusedContentColor = Veil.Text,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(androidx.compose.foundation.BorderStroke(1.dp, Veil.Accent.copy(alpha = 0.6f)), shape = RoundedCornerShape(7.dp)),
@@ -217,6 +219,11 @@ private fun GameRow(g: Score, context: android.content.Context, modifier: Modifi
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 g.teams.forEachIndexed { i, t ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Team colour bar, like the game page's performers (a final's loser at 40%).
+                        colors.bars.getOrNull(i)?.let { (c, a) ->
+                            Box(Modifier.width(3.dp).height(11.dp).clip(RoundedCornerShape(1.dp)).background(Color(c).copy(alpha = a)))
+                            Spacer(Modifier.width(5.dp))
+                        }
                         TeamLogo(t, 11.dp)
                         Spacer(Modifier.width(6.dp))
                         Text(
@@ -229,10 +236,10 @@ private fun GameRow(g: Score, context: android.content.Context, modifier: Modifi
             }
             if (g.state != "pre") {
                 Column(Modifier.width(30.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    g.teams.forEach { t ->
+                    g.teams.forEachIndexed { i, t ->
                         Text(
                             t.score, fontSize = 9.sp, fontWeight = if (t.result == "loss") FontWeight.Medium else FontWeight.Bold,
-                            color = if (t.result == "loss") Dim else Veil.Text, lineHeight = 13.sp,
+                            color = colors.scores.getOrNull(i)?.let { Color(it) } ?: if (t.result == "loss") Dim else Veil.Text, lineHeight = 13.sp,
                         )
                     }
                 }

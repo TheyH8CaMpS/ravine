@@ -298,7 +298,11 @@ class PreviewShots {
       {"id":"NFL-4","eventId":"4","feed":"NFL","league":"NFL","date":"2026-11-23T01:20Z","state":"pre","status":"5:20 PM PST","favorite":false,
        "channel":{"name":"US: NBC 4 Los Angeles","number":"4"},"teams":[${team("17", "NE", "Patriots", "#c60c30", "")},${team("25", "SF", "49ers", "#b3995d", "")}]},
       {"id":"NFL-5","eventId":"5","feed":"NFL","league":"NFL","date":"2026-11-22T18:00Z","state":"post","status":"Final","favorite":false,
-       "teams":[${team("3", "CHI", "Bears", "#c83803", "27", "win")},${team("9", "GB", "Packers", "#ffb612", "23", "loss")}]}
+       "teams":[${team("3", "CHI", "Bears", "#c83803", "27", "win")},${team("9", "GB", "Packers", "#ffb612", "23", "loss")}]},
+      {"id":"NBA-6","eventId":"6","feed":"NBA","league":"NBA","date":"2026-11-23T00:00Z","state":"in","status":"5:02 - 3rd","favorite":false,
+       "channel":{"name":"US: NBA TV HD","number":"230"},"teams":[${team("9", "GS", "Warriors", "#3f6fd1", "71")},${team("21", "PHX", "Suns", "#e56020", "64")}]},
+      {"id":"NBA-7","eventId":"7","feed":"NBA","league":"NBA","date":"2026-11-22T20:00Z","state":"post","status":"Final","favorite":false,
+       "teams":[${team("14", "MIA", "Heat", "#d0304c", "104", "loss")},${team("7", "DEN", "Nuggets", "#fec524", "110", "win")}]}
     ]}"""
 
     private val gameJson = """{"teamIds":["13","7"],"headline":"",
@@ -340,6 +344,7 @@ class PreviewShots {
     @Test fun scoresButton() = shoot("scores-button", scoresState())
     @Test fun scoresList() = shoot("scores-list", scoresState()) { it.scores.show() }
     @Test fun scoresNfl() = shoot("scores-nfl", scoresState()) { it.scores.show(); it.scores.selectTab("NFL") }
+    @Test fun scoresNba() = shoot("scores-nba", scoresState()) { it.scores.show(); it.scores.selectTab("NBA") }
     @Test fun scoresStandings() = shoot("scores-standings", scoresState()) { it.scores.show(); it.scores.selectTab("Standings") }
     @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
         s.scores.show()
