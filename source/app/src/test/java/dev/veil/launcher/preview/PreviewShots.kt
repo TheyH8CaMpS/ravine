@@ -373,9 +373,12 @@ class PreviewShots {
     private fun standingsTeam(id: String, abbr: String, name: String, record: String, color: String, streak: String) =
         """{"teamId":"$id","abbr":"$abbr","name":"$name","record":"$record","color":"#$color","streak":"$streak","logo":"https://preview/logo/$abbr-$color.png"}"""
 
-    private fun conferenceStandings(league: String, name: String, vararg rows: String) =
-        """{"league":"$league","standings":{"season":"2026","groups":[{"name":"$name","rows":[${rows.joinToString(",")}]}]}}"""
+    private fun conferenceStandings(league: String, name: String, vararg rows: String, logo: String? = null): String {
+        val headerLogo = logo?.let { ",\"logo\":\"$it\"" }.orEmpty()
+        return """{"league":"$league","standings":{"season":"2026","groups":[{"name":"$name"$headerLogo,"rows":[${rows.joinToString(",")}]}]}}"""
+    }
 
+    private val afcLogo = "https://preview.invalid/logo/AFC-C13C44.png"
     private val nflConference = conferenceStandings(
         "NFL", "AFC",
         standingsTeam("2", "BUF", "Bills", "9-2", "498DDE", "W4"),
@@ -387,6 +390,7 @@ class PreviewShots {
         standingsTeam("13", "LV", "Raiders", "6-5", "A5ACAF", "W2"),
         standingsTeam("23", "PIT", "Steelers", "5-6", "EAB24E", "L1"),
         standingsTeam("17", "NE", "Patriots", "5-6", "7E92B5", "W1"),
+        logo = afcLogo,
     )
 
     private val nbaConference = conferenceStandings(
@@ -440,7 +444,22 @@ class PreviewShots {
         shoot("scores-standings-nfl", scoresState(standings = mapOf("NFL" to nflConference))) {
             it.scores.show(); it.scores.selectTab("Standings")
         }
+        val request = logoRequests.getValue(afcLogo)
+        assertEquals(Precision.EXACT, request.precision)
+        assertEquals("14", request.parameters.memoryCacheKey("score_logo_size"))
         assertTrue("The standings request the Bills logo", "https://preview/logo/BUF-498DDE.png" in logoRequests.keys)
+    }
+
+    @Test fun scoresStandingsApTop25() {
+        val poll = javaClass.getResourceAsStream("/courtside/tv-ap-top-25.json")!!.bufferedReader().use { it.readText() }
+        shoot("scores-standings-ap-top-25", scoresState(standings = mapOf("NCAAF" to poll))) {
+            it.scores.show(); it.scores.selectTab("Standings")
+        }
+        for (label in listOf("College Football", "AP Top 25", "Ohio State")) {
+            compose.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed()
+        }
+        compose.onAllNodes(hasText("▲"), useUnmergedTree = true)[0].assertIsDisplayed()
+        compose.onAllNodes(hasText("▼"), useUnmergedTree = true)[0].assertIsDisplayed()
     }
 
     @Test fun scoresStandingsNba() {
