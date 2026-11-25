@@ -1,15 +1,12 @@
 package dev.veil.launcher.data
 
 import android.content.Context
-import dev.veil.launcher.BuildConfig
 import org.json.JSONObject
 import java.net.URLEncoder
 import kotlin.math.roundToInt
 
 /**
- * Current weather from Open-Meteo: free, no account, no API key. The location is either a city picked on
- * the TV (saved in app storage) or the default city from keys.properties. No device location or IP
- * geolocation is used.
+ * Current weather from Open-Meteo for the city picked on the TV and saved in app storage.
  */
 class Weather(context: Context) {
     /** Ravine: Fahrenheit where that's the norm (TV region US, Liberia, Myanmar), Celsius elsewhere. */
@@ -21,28 +18,26 @@ class Weather(context: Context) {
     data class Place(val name: String, val region: String, val lat: Double, val lon: Double)
 
     private val prefs = context.getSharedPreferences("weather", Context.MODE_PRIVATE)
-    private val defaultCity = BuildConfig.WEATHER_CITY.trim()
-
-    val hasOverride: Boolean get() = prefs.contains("override_name")
-    val enabled: Boolean get() = hasOverride || defaultCity.isNotEmpty()
-    val defaultName: String get() = defaultCity
+    val enabled: Boolean get() = placeName != null
 
     /** Name of the place the weather is for. */
     val placeName: String?
-        get() = prefs.getString("override_name", null) ?: defaultCity.takeIf { it.isNotEmpty() }
+        get() = prefs.getString("override_name", null)?.takeIf { it.isNotBlank() }
 
-    fun setOverride(place: Place) {
+    fun setPlace(place: Place) {
         prefs.edit().putString("override_name", place.name)
             .putFloat("override_lat", place.lat.toFloat()).putFloat("override_lon", place.lon.toFloat()).apply()
     }
 
-    fun clearOverride() {
+    fun clearPlace() {
         prefs.edit().remove("override_name").remove("override_lat").remove("override_lon").apply()
     }
 
     fun current(): Now? {
         if (!enabled) return null
-        val (lat, lon) = location() ?: return null
+        val lat = prefs.getFloat("override_lat", Float.NaN)
+        val lon = prefs.getFloat("override_lon", Float.NaN)
+        if (!lat.isFinite() || !lon.isFinite()) return null
         val (code, text) = runCatching {
             Http.call(
                 "GET",
@@ -51,17 +46,6 @@ class Weather(context: Context) {
             )
         }.getOrNull() ?: return null
         return if (code == 200) parseCurrent(text) else null
-    }
-
-    private fun location(): Pair<Double, Double>? {
-        if (hasOverride) return prefs.getFloat("override_lat", 0f).toDouble() to prefs.getFloat("override_lon", 0f).toDouble()
-        // Default city → coordinates, cached so the lookup only happens once per city.
-        if (prefs.getString("city", null) == defaultCity) {
-            return prefs.getFloat("lat", 0f).toDouble() to prefs.getFloat("lon", 0f).toDouble()
-        }
-        val p = search(defaultCity, 1).firstOrNull() ?: return null
-        prefs.edit().putString("city", defaultCity).putFloat("lat", p.lat.toFloat()).putFloat("lon", p.lon.toFloat()).apply()
-        return p.lat to p.lon
     }
 
     companion object {

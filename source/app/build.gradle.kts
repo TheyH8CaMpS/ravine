@@ -9,7 +9,7 @@ plugins {
 
 val keys = Properties().apply {
     val f = rootProject.file("keys.properties")
-    // Read as UTF-8 so values like non-English city names (é, ø, ü) survive.
+    // Read as UTF-8 to preserve non-ASCII values.
     if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }
 }
 // Veil's shared Trakt app: the default when keys.properties has no Trakt client ID.
@@ -33,7 +33,10 @@ android {
         applicationId = "app.ravine.launcher"
         minSdk = 28 // Android 9+. Newer-only features are guarded with version checks.
         targetSdk = 34
-        versionCode = 100 + (System.getenv("RAVINE_BUILD_NUMBER")?.toIntOrNull() ?: 0) // CI: rises every build
+        // Published Build 110 used code 210. Full Git history keeps CI increasing across workflow resets.
+        val commitCount = System.getenv("RAVINE_COMMIT_COUNT")?.takeIf { it.isNotBlank() }?.toInt()?.coerceAtLeast(0) ?: 0
+        require(commitCount <= 2_100_000_000 - 210) { "Commit count exceeds the Android version-code range" }
+        versionCode = 210 + commitCount
         versionName = "0.1.1"
         buildConfigField("String", "TRAKT_CLIENT_ID", key("TRAKT_CLIENT_ID"))
         buildConfigField("String", "TRAKT_CLIENT_SECRET", key("TRAKT_CLIENT_SECRET"))
@@ -42,7 +45,6 @@ android {
         buildConfigField("String", "SIMKL_CLIENT_ID", key("SIMKL_CLIENT_ID")) // Ravine: watch progress via Simkl (M2)
         buildConfigField("String", "NEXTDNS_PROFILE", key("NEXTDNS_PROFILE"))
         buildConfigField("String", "NEXTDNS_API_KEY", key("NEXTDNS_API_KEY"))
-        buildConfigField("String", "WEATHER_CITY", key("WEATHER_CITY"))
         // Lighter graphics for slow TVs (see AGENT_INSTALL.md). Off unless keys.properties has LITE_MODE=true.
         buildConfigField("boolean", "LITE_MODE", (keys.getProperty("LITE_MODE", "false").trim() == "true").toString())
     }

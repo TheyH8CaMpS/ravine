@@ -170,6 +170,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         prefs.edit().putBoolean("seasonal", seasonal).apply()
     }
     private var lastWeather = 0L
+    private var weatherJob: Job? = null
     private var lastStats = 0L
 
     /** Bumped every time Home is pressed, so the UI can move focus back to the start. */
@@ -406,7 +407,9 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()
         if (weatherSource.enabled && now - lastWeather > 30 * 60_000) {
             lastWeather = now
-            scope.launch { withContext(Dispatchers.IO) { weatherSource.current() }?.let { weather = it; VeilCache.weather = it } }
+            weatherJob = scope.launch {
+                withContext(Dispatchers.IO) { weatherSource.current() }?.let { weather = it; VeilCache.weather = it }
+            }
         }
         if (NextDnsStats.enabled && now - lastWeekly > 30 * 60_000) {
             lastWeekly = now
@@ -520,20 +523,19 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     var weatherPicker by mutableStateOf(false)
     var weatherPlace by mutableStateOf(weatherSource.placeName)
         private set
-    val weatherHasOverride: Boolean get() = weatherSource.hasOverride
-    val weatherDefault: String get() = weatherSource.defaultName
 
     fun setWeatherPlace(place: Weather.Place) {
-        weatherSource.setOverride(place)
+        weatherSource.setPlace(place)
         afterWeatherChange()
     }
 
-    fun resetWeatherPlace() {
-        weatherSource.clearOverride()
+    fun clearWeatherPlace() {
+        weatherSource.clearPlace()
         afterWeatherChange()
     }
 
     private fun afterWeatherChange() {
+        weatherJob?.cancel()
         weatherPlace = weatherSource.placeName
         weather = null
         VeilCache.weather = null

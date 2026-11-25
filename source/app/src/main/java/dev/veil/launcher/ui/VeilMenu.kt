@@ -529,8 +529,8 @@ fun WeatherPicker(state: LauncherState) {
             results.forEach { p ->
                 PickerRow(title = p.name, subtitle = p.region) { state.setWeatherPlace(p); close() }
             }
-            if (state.weatherHasOverride && state.weatherDefault.isNotEmpty()) {
-                PickerRow(title = "Use default", subtitle = state.weatherDefault) { state.resetWeatherPlace(); close() }
+            state.weatherPlace?.let { place ->
+                PickerRow(title = "Clear location", subtitle = place) { state.clearWeatherPlace(); close() }
             }
             Text("Back to cancel", fontSize = 8.5.sp, color = Veil.Text.copy(alpha = 0.45f))
         }

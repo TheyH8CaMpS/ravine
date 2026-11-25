@@ -45,11 +45,11 @@ object Updates {
         )
     }
 
-    /** This install's build number (versionCode = 100 + CI run number; local builds are 100). */
+    /** This install's displayed build number, encoded as versionCode minus 100. */
     fun currentBuild(versionCode: Int): Int = (versionCode - 100).coerceAtLeast(0)
 
     fun parse(json: JSONObject): Release? {
-        // Tag pushes can omit the build suffix. CI still includes the run number in the title.
+        // Plain tags can omit the build suffix. CI includes the APK's build number in the title.
         val build = titleBuild.find(json.optString("name"))?.groupValues?.get(1)?.toIntOrNull()
         val version = versionOf(json.optString("tag_name"), build) ?: return null
         val assets = json.optJSONArray("assets") ?: return null

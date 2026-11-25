@@ -117,7 +117,8 @@ Walk them through getting each key:
 - **NEXTDNS_PROFILE / NEXTDNS_API_KEY** (optional): my.nextdns.io. The profile ID is in the setup page
   (e.g. `abc123`), the API key at the bottom of the account page. Without them, the privacy switch uses
   AdGuard DNS and doesn't show a blocked counter.
-- **WEATHER_CITY** (optional): a city name. It can also be set later on the TV in the Veil menu.
+
+Choose the weather city on the TV under **Ravine → Weather**. Weather stays hidden until a city is chosen.
 
 Changing keys means rebuilding (they're compiled into the app). Never commit or share `keys.properties`;
 it's already listed in `source/.gitignore`.
@@ -131,9 +132,11 @@ cd source
 ./gradlew assembleRelease          # Windows: gradlew.bat assembleRelease
 ```
 Install only after `BUILD SUCCESSFUL`. On Windows, R8 sometimes locks `classes.dex`; just run the build
-again. The app is at `source/app/build/outputs/apk/release/app-release.apk`. It's signed with this
-computer's debug key, so later updates must be built on the same computer. A build from a different
-computer needs an uninstall first, which also signs them out of Trakt.
+again. The local APK is at `source/app/build/outputs/apk/release/app-release.apk`.
+
+GitHub Releases use Ravine’s stable release signing key. Use the published APK to update an existing
+release install and keep its app data. Local builds without the release keystore use the computer’s debug
+key and can only update an APK signed with that same key.
 
 Ask, then run:
 ```sh

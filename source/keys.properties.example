@@ -12,5 +12,3 @@ SIMKL_CLIENT_ID=
 # Optional: NextDNS profile ID + API key for ad blocking via NextDNS and the blocked counter
 NEXTDNS_PROFILE=
 NEXTDNS_API_KEY=
-# Optional: default weather city (can also be changed on the TV in the Ravine menu)
-WEATHER_CITY=
