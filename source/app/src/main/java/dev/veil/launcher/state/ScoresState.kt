@@ -42,22 +42,14 @@ class ScoresState internal constructor(
         cache = ScoresCache(File(context.filesDir, "courtside-scores.json")),
     )
 
-    /** The Scores button shows once Courtside is set up on this TV and its scores route has answered. */
-    val available: Boolean get() = forceAvailable ?: reachable
+    /** Configuration is local, so Scores stays reachable even when the provider isn't. */
+    val available: Boolean get() = forceAvailable ?: configuredOnDevice
     internal var forceAvailable: Boolean? = null // previews
-    private var reachable by mutableStateOf(false)
-    private var lastProbe = 0L
+    private var configuredOnDevice by mutableStateOf(runCatching(configured).getOrDefault(false))
 
-    /** Minute tick: until Courtside's scores route answers, ask again every 15 minutes. */
-    fun tick(now: Long) {
-        if (reachable || now - lastProbe < 15 * 60_000L) return
-        lastProbe = now
-        scope.launch {
-            val ok = withContext(Dispatchers.IO) {
-                runCatching { configured() && fetcher(scoresPath())?.let { CourtsideScores.parseScores(it) } != null }.getOrDefault(false)
-            }
-            if (ok) reachable = true
-        }
+    /** Re-read local setup on resume and the minute tick. Only opening Scores starts a score fetch. */
+    fun refreshConfiguration() {
+        configuredOnDevice = runCatching(configured).getOrDefault(false)
     }
 
     private fun scoresPath(day: LocalDate = today()): String = "/api/tv/scores?date=$day&zone=${ZONE.id}"

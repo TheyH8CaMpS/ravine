@@ -15,11 +15,13 @@ import androidx.core.view.doOnLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import dev.veil.launcher.data.CrashLog
 import dev.veil.launcher.ui.ThemeState
 import dev.veil.launcher.ui.VeilApp
 import dev.veil.launcher.ui.VeilTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 
 class MainActivity : ComponentActivity() {
     private companion object {
@@ -27,6 +29,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var state: LauncherState
+    private val activityScope by lazy { lifecycleScope + CrashLog.coroutineHandler(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +37,7 @@ class MainActivity : ComponentActivity() {
         dev.veil.launcher.ui.ArtTint.load(applicationContext)
         dev.veil.launcher.ui.Sfx.init(applicationContext)
         dev.veil.launcher.viz.VizSettings.load(applicationContext)
-        state = LauncherState(applicationContext, lifecycleScope)
+        state = LauncherState(applicationContext, activityScope)
         // No accessibility tree: Veil's own Home-button helper is an accessibility service, and while any
         // service is on, Compose rebuilds and re-sorts a screen-reader description of every element on
         // every animated frame (measured: ~70% of the main thread in music mode). Focus, navigation and
@@ -62,7 +65,7 @@ class MainActivity : ComponentActivity() {
             addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON)
         })
         // While Veil is on screen, keep the weather and blocked counter fresh.
-        lifecycleScope.launch {
+        activityScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     state.refreshExtras()
@@ -71,7 +74,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         // Idle check for Veil Ambient.
-        lifecycleScope.launch {
+        activityScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(5_000)
@@ -147,7 +150,7 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (!hasFocus || !checkFocusOnWindowFocus) return
         checkFocusOnWindowFocus = false
-        lifecycleScope.launch {
+        activityScope.launch {
             delay(80)
             if (state.wordmarkFocused) state.focusHome()
         }

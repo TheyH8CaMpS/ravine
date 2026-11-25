@@ -199,7 +199,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
             if (sections.isEmpty()) item {
                 NoteRow(
                     when {
-                        s.failed -> "Courtside isn't answering right now. It will try again shortly."
+                        s.failed -> "Courtside unreachable. Retrying shortly."
                         s.loading && s.games.isEmpty() -> "Loading…"
                         s.tab == ScoresState.YOURS -> "No Raiders, Dodgers or Lakers games today."
                         else -> "No games today."

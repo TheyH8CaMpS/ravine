@@ -50,13 +50,7 @@ class Weather(context: Context) {
                     "&current=temperature_2m,weather_code,is_day&temperature_unit=${if (fahrenheit) "fahrenheit" else "celsius"}",
             )
         }.getOrNull() ?: return null
-        if (code != 200) return null
-        val c = JSONObject(text).obj("current") ?: return null
-        return Now(
-            tempC = c.optDouble("temperature_2m").roundToInt(),
-            kind = kindOf(c.optInt("weather_code")),
-            isDay = c.optInt("is_day", 1) == 1,
-        )
+        return if (code == 200) parseCurrent(text) else null
     }
 
     private fun location(): Pair<Double, Double>? {
@@ -71,6 +65,13 @@ class Weather(context: Context) {
     }
 
     companion object {
+        internal fun parseCurrent(text: String): Now? = runCatching {
+            val current = JSONObject(text).obj("current") ?: return@runCatching null
+            val temperature = current.optDouble("temperature_2m")
+            if (!temperature.isFinite()) return@runCatching null
+            Now(temperature.roundToInt(), kindOf(current.optInt("weather_code")), current.optInt("is_day", 1) == 1)
+        }.getOrNull()
+
         /** City search via Open-Meteo's geocoding API. */
         fun search(query: String, count: Int = 6): List<Place> {
             if (query.isBlank()) return emptyList()
@@ -79,16 +80,21 @@ class Weather(context: Context) {
                 Http.call("GET", "https://geocoding-api.open-meteo.com/v1/search?name=$q&count=$count&language=en&format=json")
             }.getOrNull() ?: return emptyList()
             if (code != 200) return emptyList()
-            val arr = JSONObject(text).optJSONArray("results") ?: return emptyList()
-            return (0 until arr.length()).map { i ->
-                val r = arr.getJSONObject(i)
-                Place(
-                    name = r.str("name") ?: "?",
-                    region = listOfNotNull(r.str("admin1"), r.str("country")).distinct().joinToString(", "),
-                    lat = r.optDouble("latitude"),
-                    lon = r.optDouble("longitude"),
-                )
-            }
+            return runCatching {
+                val results = JSONObject(text).optJSONArray("results") ?: return@runCatching emptyList()
+                (0 until results.length()).mapNotNull { i ->
+                    val place = results.optJSONObject(i) ?: return@mapNotNull null
+                    val lat = place.optDouble("latitude")
+                    val lon = place.optDouble("longitude")
+                    if (!lat.isFinite() || !lon.isFinite()) return@mapNotNull null
+                    Place(
+                        name = place.str("name") ?: "?",
+                        region = listOfNotNull(place.str("admin1"), place.str("country")).distinct().joinToString(", "),
+                        lat = lat,
+                        lon = lon,
+                    )
+                }
+            }.getOrDefault(emptyList())
         }
 
         /** WMO weather interpretation codes. */
