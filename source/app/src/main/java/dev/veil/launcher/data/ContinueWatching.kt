@@ -1,5 +1,6 @@
 package dev.veil.launcher.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -18,7 +19,9 @@ object ContinueWatching {
     /** An episode counts as "NEW" for two weeks after it airs (if you haven't watched the show since). */
     private const val NEW_WINDOW_MS = 14L * 24 * 3600 * 1000
 
-    suspend fun load(trakt: Trakt, tmdb: Tmdb): List<WatchItem> = coroutineScope {
+    suspend fun load(trakt: Trakt, tmdb: Tmdb, cached: List<WatchItem> = emptyList()): List<WatchItem> = coroutineScope {
+        val previous = cached.associateBy { it.key }
+        val previousUpNext = cached.filter { it.upNext }.associateBy { it.traktId }
         val playback = parsePlayback(JSONArray(trakt.get("/sync/playback?limit=30&extended=full")))
         val pausedShows = playback.filter { !it.isMovie }.mapNotNull { it.traktId }.toSet()
         // Shows you removed from Continue Watching (Trakt "hidden from progress") stay out of Up Next.
@@ -59,7 +62,10 @@ object ContinueWatching {
                         showItem(pair.first, next, progress = 0f, upNext = true, sortTime = maxOf(pair.second, if (isNew) aired else 0L))
                             .let { it.copy(isNew = isNew, runtime = it.runtime ?: pair.first.int("runtime")) }
                     }
-                }.getOrNull()
+                }.getOrElse { failure ->
+                    if (failure is CancellationException) throw failure
+                    previousUpNext[id]
+                }
             }
         }.awaitAll().filterNotNull()
 
@@ -70,9 +76,8 @@ object ContinueWatching {
 
         merged.map { item ->
             async {
-                val id = item.tmdb ?: return@async item
-                val art = runCatching { tmdb.art(item.isMovie, id) }.getOrNull() ?: return@async item
-                item.copy(backdrop = art.backdrop, thumb = art.thumb, logo = art.logo, poster = art.poster)
+                val art = item.tmdb?.let { runCatching { tmdb.art(item.isMovie, it) }.getOrNull() }
+                item.withArtwork(art, previous[item.key])
             }
         }.awaitAll()
     }

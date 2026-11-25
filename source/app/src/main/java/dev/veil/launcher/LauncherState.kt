@@ -22,8 +22,10 @@ import dev.veil.launcher.data.LocalHistory
 import dev.veil.launcher.data.GameDay
 import dev.veil.launcher.data.VeilCache
 import dev.veil.launcher.data.WatchItem
+import dev.veil.launcher.data.WatchingCache
 import dev.veil.launcher.ui.ThemeState
 import dev.veil.launcher.ui.VeilThemeSpec
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -199,8 +201,11 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     /** Moves a pinned app one step left (-1) or right (+1) among the apps that are installed. */
     // ---- Continue Watching assembly + daily shows (Ravine) ----------------------------------------
 
+    private val localWatchingCache = WatchingCache(context.getSharedPreferences("ravine_watching", Context.MODE_PRIVATE))
+    private var watchingCache = if (connected) trakt.watchingCache else localWatchingCache
+
     /** Nuvio/Trakt items, before the daily show card is put in front. */
-    private var baseItems: List<WatchItem> = emptyList()
+    private var baseItems: List<WatchItem> = watchingCache.load()
 
     /** The row = the daily show (newest, first) + Nuvio/Trakt items; keeps focus on the same card if it's still there. */
     private fun publishItems(base: List<WatchItem>) {
@@ -214,6 +219,19 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         val keep = merged.firstOrNull { it.key == focused?.key }
         focused = keep ?: merged.firstOrNull()
         focusedIndex = if (keep != null) merged.indexOf(keep) else 0
+    }
+
+    init {
+        LocalHistory.init(context)
+        publishItems(baseItems)
+    }
+
+    private fun selectWatchingCache(useTrakt: Boolean): Boolean {
+        val cache = if (useTrakt) trakt.watchingCache else localWatchingCache
+        if (cache === watchingCache) return false
+        watchingCache = cache
+        publishItems(cache.load())
+        return true
     }
 
     // ---- Ravine menu settings ------------------------------------------------------------------
@@ -292,47 +310,35 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     }
 
     fun refreshWatching(force: Boolean = false) {
-        connected = trakt.isConnected
-        if (!connected) { refreshLocal(force); return }
+        val useTrakt = trakt.isConnected
+        connected = useTrakt
+        val switched = selectWatchingCache(useTrakt)
         if (loading) return
         val now = System.currentTimeMillis()
-        if (!force && now - lastLoad < 30_000) return
+        val interval = if (useTrakt) 30_000 else 15_000
+        if (!force && !switched && now - lastLoad < interval) return
         lastLoad = now
+        val cache = watchingCache
+        val cached = baseItems
+        loading = true
         scope.launch {
-            loading = true
             try {
-                val result = withContext(Dispatchers.IO) { ContinueWatching.load(trakt, tmdb) }
+                val result = withContext(Dispatchers.IO) {
+                    if (useTrakt) ContinueWatching.load(trakt, tmdb, cached)
+                    else LocalHistory.items(tmdb, cached = cached)
+                }
+                if (cache !== watchingCache || cached !== baseItems || useTrakt != trakt.isConnected) return@launch
+                cache.save(result)
                 publishItems(result)
                 error = null
-            } catch (e: Exception) {
-                error = "Couldn't reach Trakt"
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                error = if (useTrakt) "Couldn't reach Trakt" else "Couldn't load your history"
             } finally {
                 loading = false
                 connected = trakt.isConnected
-            }
-        }
-    }
-
-    /**
-     * Ravine: Continue Watching from what Nuvio played on this TV (no account; PROJECT.md §5). Used whenever
-     * Trakt isn't connected. Recorded in the background by [MediaListener].
-     */
-    private fun refreshLocal(force: Boolean) {
-        if (loading) return
-        val now = System.currentTimeMillis()
-        if (!force && now - lastLoad < 15_000) return
-        lastLoad = now
-        LocalHistory.init(context)
-        scope.launch {
-            loading = true
-            try {
-                val result = withContext(Dispatchers.IO) { LocalHistory.items(tmdb) }
-                publishItems(result)
-                error = null
-            } catch (e: Exception) {
-                error = "Couldn't load your history"
-            } finally {
-                loading = false
+                selectWatchingCache(connected)
             }
         }
     }
@@ -394,7 +400,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         yakRewind.tick(now)
         updates.tick(now)
         walls.tick(now)
-        scores.tick(now)
+        scores.refreshConfiguration()
         // A pause that ended while the alarm was delayed: resume now.
         if (dnsResumeAt in 1..now && !dnsOn && !dnsBusy) turnDnsOn()
         if (weatherSource.enabled && now - lastWeather > 30 * 60_000) {
@@ -447,16 +453,27 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         showToast("Removed ${item.title} from Continue Watching")
     } else if (!connected) {
         LocalHistory.hide(item.key)
-        publishItems(baseItems.filter { it.key != item.key })
+        val kept = baseItems.filterNot { it.key == item.key }
+        watchingCache.save(kept)
+        publishItems(kept)
         showToast("Removed ${item.title} from Continue Watching")
     } else traktAction(item, "Removed ${item.title} from Continue Watching") { trakt.removeFromProgress(item) }
 
     private fun traktAction(item: WatchItem, done: String, call: () -> Boolean) {
-        publishItems(baseItems.filterNot { it.key == item.key })          // instant feedback
+        val before = baseItems
+        val kept = before.filterNot { it.key == item.key }
+        publishItems(kept) // instant feedback
         scope.launch {
             val ok = withContext(Dispatchers.IO) { runCatching(call).getOrDefault(false) }
-            if (ok) { dev.veil.launcher.ui.Sfx.success(); showToast(done) }
-            else { dev.veil.launcher.ui.Sfx.error(); showToast("Couldn't reach Trakt. Nothing was changed") }
+            if (ok) {
+                if (watchingCache === trakt.watchingCache && trakt.isConnected && baseItems === kept) watchingCache.save(kept)
+                dev.veil.launcher.ui.Sfx.success()
+                showToast(done)
+            } else {
+                if (baseItems === kept) publishItems(before)
+                dev.veil.launcher.ui.Sfx.error()
+                showToast("Couldn't reach Trakt. Nothing was changed")
+            }
             lastLoad = 0
             refreshWatching(force = true)                          // pick up the next episode / restore on failure
         }
@@ -722,7 +739,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         trakt.setClientId(id)
         connected = false
         focused = null
-        publishItems(emptyList())
+        publishItems(localWatchingCache.load())
+        watchingCache = localWatchingCache
         focusedIndex = 0
         startConnect()
     }
@@ -738,7 +756,8 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
         trakt.disconnect()
         connected = false
         focused = null
-        publishItems(emptyList())
+        publishItems(localWatchingCache.load())
+        watchingCache = localWatchingCache
         focusedIndex = 0
     }
 

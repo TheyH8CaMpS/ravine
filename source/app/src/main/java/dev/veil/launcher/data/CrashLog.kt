@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
 import android.os.Build
+import kotlinx.coroutines.CoroutineExceptionHandler
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,6 +31,17 @@ object CrashLog {
             previous?.uncaughtException(thread, error)
         }
         if (Build.VERSION.SDK_INT >= 30) runCatching { recordExits(app) }
+    }
+
+    internal fun coroutineHandler(context: Context): CoroutineExceptionHandler {
+        val app = context.applicationContext
+        return CoroutineExceptionHandler { _, error ->
+            runCatching {
+                // Exception messages may include private provider URLs or credentials.
+                val frames = error.stackTrace.joinToString("\n") { "  at $it" }
+                append(app, "RECOVERED COROUTINE FAILURE", "${error.javaClass.name}\n$frames")
+            }
+        }
     }
 
     private fun recordExits(context: Context) {

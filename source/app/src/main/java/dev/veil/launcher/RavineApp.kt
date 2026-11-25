@@ -4,6 +4,7 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
+import dev.veil.launcher.data.OfflineImageCache
 import okhttp3.OkHttpClient
 
 /**
@@ -12,7 +13,8 @@ import okhttp3.OkHttpClient
  * - Sends a descriptive User-Agent. Wikimedia (Dodgers/Raiders/Lakers/Sequoia photos in the wallpaper feed)
  *   answers 403 to generic HTTP clients and serves only clients that identify themselves.
  * - A larger memory cache: the Shield has 3 GB, so the current and next wallpaper, the show artwork and the
- *   pill thumbnails all stay decoded (instant crossfades). Coil's default disk cache keeps working offline.
+ *   pill thumbnails all stay decoded (instant crossfades). Offline images can reuse Coil's disk cache
+ *   even when their headers require revalidation.
  */
 class RavineApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
@@ -21,6 +23,7 @@ class RavineApp : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .components { add(OfflineImageCache) }
         .okHttpClient {
             OkHttpClient.Builder()
                 .addNetworkInterceptor { chain ->

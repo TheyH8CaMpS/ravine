@@ -109,6 +109,7 @@ They're out of scope.
 | D62 | Scores standings show NFL, NBA, the college football AP Top 25, and MLB while Courtside reports it is in season. Team logos and colour bars appear when supplied, with a light tint for favourites. Conference headers show their supplied logos. Cutoffs follow seed 7 in the NFL and seeds 6 and 10 in the NBA. The AP poll shows current rank and an arrow for a change from the previous rank | ravine#30, ravine#37 |
 | D63 | Scores logos decode at twice their drawn pixel size and downscale with high-quality filtering. Standings logos draw at 16 dp in the existing row slots. Debug startup logs the UI canvas, density and display mode | ravine#42 |
 | D64 | The Ravine menu follows the selected Look. The sheet takes a light tint from the accent, values use brighter accent text, and focused rows and quick actions fill with the accent. Menu text meets the 4.5:1 contrast threshold in all eleven Looks | ravine#43 |
+| D65 | Offline startup restores the last Continue Watching row and its artwork URLs. When the network is unavailable, Coil can reuse expired disk images for artwork and wallpapers. Scores appears as soon as Courtside is configured and opens to today's saved games if available. Weather ignores malformed replies, and unexpected launcher coroutine failures go to the crash log without exception messages | ravine#49 |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

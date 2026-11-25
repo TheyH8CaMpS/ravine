@@ -111,17 +111,22 @@ object LocalHistory {
         runCatching { file?.writeText(toJson(map.values.toList())) }
     }
 
-    private fun update(e: Entry) = synchronized(lock) {
+    private fun updateIds(e: Entry) = synchronized(lock) {
         val map = entries()
-        if (map.containsKey(e.key)) { map[e.key] = e; save(map, System.currentTimeMillis()) }
+        val current = map[e.key] ?: return@synchronized
+        val updated = current.copy(tmdb = e.tmdb ?: current.tmdb, imdb = e.imdb ?: current.imdb)
+        if (updated == current) return@synchronized
+        map[e.key] = updated
+        save(map, System.currentTimeMillis())
     }
 
     /** Must match [WatchItem.key] for the cards built below (no Trakt id, so it's keyed by title). */
     private fun cardKey(e: Entry) = if (e.isMovie) "m:${e.imdb ?: e.title}" else "s:${e.title}"
 
     /** Builds the Continue Watching cards, newest first. Network (TMDB): call off the main thread. */
-    fun items(tmdb: Tmdb, limit: Int = 12): List<WatchItem> {
+    fun items(tmdb: Tmdb, limit: Int = 12, cached: List<WatchItem> = emptyList()): List<WatchItem> {
         val list = synchronized(lock) { entries().values.sortedByDescending { it.lastPlayed } }
+        val previous = cached.associateBy { it.key }
         val out = ArrayList<WatchItem>()
         for (e0 in list) {
             if (out.size >= limit) break
@@ -129,6 +134,7 @@ object LocalHistory {
             val e = resolve(e0, tmdb)
             val id = e.tmdb
             val art = id?.let { runCatching { tmdb.art(e.isMovie, it) }.getOrNull() }
+            val saved = previous[cardKey(e)] ?: previous[cardKey(e0)]
             var season = e.season
             var episode = e.episode
             var episodeTitle = e.episodeTitle
@@ -136,7 +142,14 @@ object LocalHistory {
             var upNext = false
             if (!e.isMovie && e.finished) {
                 // Finished an episode: offer the next one, if it has aired.
-                val next = id?.let { nextAired(tmdb, it, e.season, e.episode) } ?: continue
+                val details = id?.let { tmdb.get("tv/$it") }
+                val next = if (details != null) {
+                    nextAired(tmdb, id, e.season, e.episode, details)
+                } else {
+                    saved?.takeIf {
+                        it.upNext && (it.sortTime == e.lastPlayed || (it.season == e.season && it.episode == e.episode + 1))
+                    }?.let { Triple(it.season, it.episode, it.episodeTitle) }
+                } ?: continue
                 season = next.first; episode = next.second; episodeTitle = next.third
                 progress = 0f; upNext = true
             }
@@ -153,11 +166,7 @@ object LocalHistory {
                 runtime = if (upNext) null else (e.durationMs / 60_000).toInt().takeIf { it > 0 },
                 upNext = upNext,
                 sortTime = e.lastPlayed,
-                backdrop = art?.backdrop,
-                thumb = art?.thumb,
-                logo = art?.logo,
-                poster = art?.poster,
-            )
+            ).withArtwork(art, saved)
         }
         return out
     }
@@ -173,12 +182,11 @@ object LocalHistory {
         } ?: return e
         val details = tmdb.get("$type/$id", if (e.isMovie) "" else "append_to_response=external_ids")
         val imdb = if (e.isMovie) details?.str("imdb_id") else details?.obj("external_ids")?.str("imdb_id")
-        return e.copy(tmdb = id, imdb = imdb).also { update(it) }
+        return e.copy(tmdb = id, imdb = imdb).also { updateIds(it) }
     }
 
     /** The episode after (season, episode) if it has aired, using TMDB's "last episode to air". */
-    private fun nextAired(tmdb: Tmdb, id: Int, season: Int, episode: Int): Triple<Int, Int, String?>? {
-        val d = tmdb.get("tv/$id") ?: return null
+    private fun nextAired(tmdb: Tmdb, id: Int, season: Int, episode: Int, d: JSONObject): Triple<Int, Int, String?>? {
         val last = d.obj("last_episode_to_air") ?: return null
         val lastS = last.int("season_number") ?: return null
         val lastE = last.int("episode_number") ?: return null

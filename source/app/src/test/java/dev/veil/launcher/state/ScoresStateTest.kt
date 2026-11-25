@@ -57,6 +57,39 @@ class ScoresStateTest {
         assertEquals(board("NBA-2"), ScoresCache(file).load(today))
     }
 
+    @Test fun offlineColdStartShowsTheConfiguredButtonAndKeepsTodaysCache() {
+        val file = tmp.newFile("offline-scores.json")
+        ScoresCache(file).save(today, board("NBA-1"))
+        val unreachable = ScoresState(
+            CoroutineScope(Dispatchers.Unconfined),
+            fetcher = { null },
+            configured = { true },
+            cache = ScoresCache(file),
+            today = { today },
+        )
+
+        assertTrue(unreachable.available)
+        unreachable.show()
+        waitUntil { !unreachable.loading }
+        assertEquals(listOf("NBA-1"), unreachable.games.map { it.id })
+        assertFalse(unreachable.failed)
+    }
+
+    @Test fun unreachableWithoutACacheIsDifferentFromAnEmptyScoreboard() {
+        val unreachable = ScoresState(
+            CoroutineScope(Dispatchers.Unconfined),
+            fetcher = { null },
+            configured = { true },
+            cache = ScoresCache(File(tmp.root, "missing-scores.json")),
+            today = { today },
+        )
+
+        unreachable.show()
+        waitUntil { !unreachable.loading }
+        assertTrue(unreachable.games.isEmpty())
+        assertTrue(unreachable.failed)
+    }
+
     @Test fun yesterdaysCacheIsIgnored() {
         val file = tmp.newFile("scores.json")
         ScoresCache(file).save(today.minusDays(1), board("NBA-0"))

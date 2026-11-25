@@ -9,6 +9,8 @@ import java.io.IOException
 class Trakt(context: Context) {
     private val app = context.applicationContext
     private val prefs = context.getSharedPreferences("trakt", Context.MODE_PRIVATE)
+    // The account's last row is cleared with its sign-in state.
+    internal val watchingCache = WatchingCache(prefs)
     /** A client ID typed in on the TV. Kept apart from [prefs] so signing out doesn't forget it. */
     private val appPrefs = context.getSharedPreferences("trakt_app", Context.MODE_PRIVATE)
     private val ownId: String? get() = appPrefs.getString("client_id", null)?.takeIf { it.isNotBlank() }
