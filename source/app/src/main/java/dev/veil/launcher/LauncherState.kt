@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.view.KeyEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -646,7 +647,7 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
             swallowKey = keyCode
             return true
         }
-        if (down && ambient) {
+        if (down && ambient && keyCode !in ambientPassthroughKeys) {
             ambient = false
             swallowKey = keyCode
             return true
@@ -815,6 +816,17 @@ class LauncherState(private val context: Context, private val scope: CoroutineSc
     }
 
     companion object {
+        private val ambientPassthroughKeys = setOf(
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_PLAY,
+            KeyEvent.KEYCODE_MEDIA_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_NEXT,
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+            KeyEvent.KEYCODE_VOLUME_UP,
+            KeyEvent.KEYCODE_VOLUME_DOWN,
+            KeyEvent.KEYCODE_VOLUME_MUTE,
+        )
+
         const val NUVIO = "com.nuvio.tv"
         /** Ravine's dock. Apps that aren't installed are skipped (both SmartTube channels are listed). */
         val DEFAULT_PINS = listOf(

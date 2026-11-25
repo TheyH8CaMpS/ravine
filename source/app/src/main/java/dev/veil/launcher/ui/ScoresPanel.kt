@@ -763,8 +763,7 @@ private fun Hint(text: String) =
 
 /** Top bar entry: "Scores", with a quiet live dot while one of your teams is playing. */
 @Composable
-fun ScoresButton(state: LauncherState) {
-    val focus = remember { FocusRequester() }
+fun ScoresButton(state: LauncherState, focus: FocusRequester) {
     val liveFavorite = state.gameDay.game?.state == dev.veil.launcher.data.Game.State.LIVE
     LaunchedEffect(state.scores.closedTick) { if (state.scores.closedTick > 0) { delay(80); runCatching { focus.requestFocus() } } }
     Surface(

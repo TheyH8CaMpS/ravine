@@ -84,7 +84,7 @@ fun VeilApp(state: LauncherState) {
         exit = fadeOut(tween(160)),
     ) { ScoresPanel(state) }
 
-    // Veil Ambient sits above everything; any button press (handled in MainActivity) dismisses it.
+    // Veil Ambient sits above everything. MainActivity lets media and volume keys pass through it.
     AnimatedVisibility(visible = state.ambient, enter = fadeIn(tween(900)), exit = fadeOut(tween(350))) {
         AmbientScreen(
             track = state.nowPlaying.track,

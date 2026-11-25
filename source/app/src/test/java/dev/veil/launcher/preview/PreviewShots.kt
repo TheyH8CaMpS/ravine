@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
+import android.view.KeyEvent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -19,6 +20,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -41,6 +43,7 @@ import coil.request.SuccessResult
 import coil.size.Precision
 import coil.size.Size
 import dev.veil.launcher.LauncherState
+import dev.veil.launcher.Screen
 import dev.veil.launcher.data.AppEntry
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.Updates
@@ -55,6 +58,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -257,6 +261,43 @@ class PreviewShots {
     /** Nothing in progress: no Continue Watching row (owner, minimalist). */
     @Test fun homeEmpty() = shoot("home-empty", newState()) { it.items = emptyList() }
 
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun scoresOpensFromTheDockInThreePresses() {
+        val state = scoresState()
+        shoot("scores-remote-focus", state)
+
+        val dock = compose.onNode(hasText(state.pinnedApps.first().label) and hasClickAction())
+        val card = compose.onNode(hasText(state.items.single().title) and hasClickAction())
+        val scores = compose.onNode(hasText("Scores") and hasClickAction())
+        dock.assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
+        card.assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
+        scores.assertIsFocused().performKeyInput { pressKey(Key.DirectionCenter) }
+        assertTrue(state.scores.open)
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun topBarRemembersItsLastFocusWithoutContinueWatching() {
+        val state = scoresState().also { it.items = emptyList() }
+        shoot("top-bar-remote-focus", state)
+
+        val focused = compose.onNode(isFocused() and hasClickAction())
+        val scores = compose.onNode(hasText("Scores") and hasClickAction())
+        val settings = compose.onNode(hasContentDescription("Settings") and hasClickAction())
+        focused.performKeyInput { pressKey(Key.DirectionUp) }
+        scores.assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        settings.assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        settings.assertIsNotFocused()
+        focused.performKeyInput { pressKey(Key.DirectionUp) }
+        settings.assertIsFocused()
+    }
+
+    @Test fun allAppsHasNoTraktAction() {
+        val state = newState().also { it.screen = Screen.DRAWER }
+        shoot("all-apps-remote", state)
+        compose.onNodeWithText("All apps").assertIsDisplayed()
+        compose.onNodeWithText("Trakt", substring = true).assertDoesNotExist()
+    }
+
     // The menu normally opens when its wordmark has focus; here it's opened directly once Home has settled.
     @Test fun menu() = shoot("menu", newState()) { it.veilMenuOpen = true }
 
@@ -333,10 +374,10 @@ class PreviewShots {
             button(section).performKeyInput { pressKey(Key.DirectionCenter) }
             compose.mainClock.advanceTimeBy(150)
             org.junit.Assert.assertTrue("Menu should stay open after entering $section", state.veilMenuOpen)
-            button("Back to sections").assertIsFocused()
+            button(labels.first()).assertIsFocused()
             for (label in labels) button(label).assertIsDisplayed()
             if (section == "Wallpaper") capture("menu-wallpaper")
-            button("Back to sections").performKeyInput { pressKey(Key.Back) }
+            button(labels.first()).performKeyInput { pressKey(Key.Back) }
             compose.mainClock.advanceTimeBy(150)
             button(section).assertIsFocused()
             previous = section
@@ -344,6 +385,26 @@ class PreviewShots {
     }
 
     @Test fun ambient() = shoot("ambient", newState()) { it.startAmbient() }
+
+    @Test fun ambientPassesMediaAndVolumeKeysButDismissesOnBackAndOk() {
+        val state = newState()
+        state.startAmbient()
+        for (key in listOf(
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+            KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE,
+        )) {
+            assertFalse("Ambient consumed key down for $key", state.onKey(key, down = true))
+            assertFalse("Ambient consumed key up for $key", state.onKey(key, down = false))
+            assertTrue("Ambient dismissed on $key", state.ambient)
+        }
+        for (key in listOf(KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_CENTER)) {
+            state.startAmbient()
+            assertTrue(state.onKey(key, down = true))
+            assertFalse(state.ambient)
+            assertTrue(state.onKey(key, down = false))
+        }
+    }
 
     @Test fun vizSettings() = shoot("viz-settings", newState()) { it.vizSettingsOpen = true }
 
