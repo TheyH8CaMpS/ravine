@@ -57,6 +57,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -229,15 +230,17 @@ private fun MusicFace(track: NowPlaying.Track, lyricsOn: Boolean) {
         // Blurred album art wash: blurred once into a tiny image and scaled up (a live full-screen blur
         // was the most expensive thing in music mode, and two of them overlapped on every song change).
         val soft = rememberSoftArt(track.artLarge)
-        Crossfade(targetState = soft, animationSpec = tween(1500), label = "wash") { art ->
-            if (art != null) {
-                Image(
-                    art, contentDescription = null, contentScale = ContentScale.Crop,
-                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Low,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = drift.value; scaleY = drift.value },
-                )
-            } else {
-                Box(Modifier.fillMaxSize().background(Color(0xFF1E2430)))
+        key(track.artworkKey) {
+            Crossfade(targetState = soft, animationSpec = tween(1500), label = "wash") { art ->
+                if (art != null) {
+                    Image(
+                        art, contentDescription = null, contentScale = ContentScale.Crop,
+                        filterQuality = androidx.compose.ui.graphics.FilterQuality.Low,
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = drift.value; scaleY = drift.value },
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF1E2430)))
+                }
             }
         }
         // Darkening + left-side fade, as one tiny pre-rendered strip stretched over the screen.
@@ -251,7 +254,7 @@ private fun MusicFace(track: NowPlaying.Track, lyricsOn: Boolean) {
                 )
             },
         )
-        EdgeGlow(track.artLarge)
+        key(track.artworkKey) { EdgeGlow(track.artLarge) }
 
         AnimatedContent(
             targetState = lyricLayout,
@@ -361,16 +364,18 @@ internal fun coverSize(track: NowPlaying.Track, want: androidx.compose.ui.unit.D
 @Composable
 private fun Cover(track: NowPlaying.Track, want: androidx.compose.ui.unit.Dp, scale: androidx.compose.runtime.State<Float>) {
     val size = coverSize(track, want)
-    Crossfade(targetState = track.artLarge, animationSpec = tween(1200), label = "cover") { art ->
-        // The shadow stays still and only the cover breathes (a resizing shadow is recalculated every frame).
-        Box(Modifier.size(size).shadow(40.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp))) {
-            Box(
-                Modifier.fillMaxSize().graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-                    .clip(RoundedCornerShape(26.dp)).background(Veil.GlassStrong),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (art != null) Image(art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                else Icon(VeilIcons.Note, contentDescription = null, modifier = Modifier.size(48.dp), tint = Veil.Text)
+    key(track.artworkKey) {
+        Crossfade(targetState = track.artLarge, animationSpec = tween(1200), label = "cover") { art ->
+            // The shadow stays still and only the cover breathes (a resizing shadow is recalculated every frame).
+            Box(Modifier.size(size).shadow(40.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp))) {
+                Box(
+                    Modifier.fillMaxSize().graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+                        .clip(RoundedCornerShape(26.dp)).background(Veil.GlassStrong),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (art != null) Image(art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else Icon(VeilIcons.Note, contentDescription = null, modifier = Modifier.size(48.dp), tint = Veil.Text)
+                }
             }
         }
     }

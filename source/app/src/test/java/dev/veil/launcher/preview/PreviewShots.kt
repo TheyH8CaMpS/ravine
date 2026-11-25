@@ -25,6 +25,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.activity.ComponentActivity
@@ -567,11 +568,13 @@ class PreviewShots {
             hasClickAction() and hasAnyDescendant(hasText(label, substring = true)),
             useUnmergedTree = true,
         )
-        action("Watch in").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        compose.onNodeWithText("Watch in", substring = true, useUnmergedTree = true).assertDoesNotExist()
+        val stats = compose.onNodeWithTag("score-stats", useUnmergedTree = true)
+        stats.assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
         action("Bears at Packers").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         action("Fourth-quarter comeback").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         action("Game-winning drive").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
-        action("Watch in").assertIsFocused()
+        stats.assertIsFocused()
     }
 
     @Test fun scoresHighlightsIntent() {

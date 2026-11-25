@@ -17,6 +17,15 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import dev.veil.launcher.MediaListener
 
+internal data class TrackArtworkKey(val pkg: String, val title: String, val artist: String?, val album: String?, val mediaId: String?)
+
+/** Keep the latest decoded cover tied to the track that supplied it. */
+internal class TrackArtwork<T> {
+    private var entry: Pair<TrackArtworkKey, T>? = null
+    fun forTrack(key: TrackArtworkKey): T? = entry?.takeIf { it.first == key }?.second
+    fun store(key: TrackArtworkKey, art: T) { entry = key to art }
+}
+
 /** Tracks the active media session (Spotify, Nuvio, …) for the "now playing" pill. */
 class NowPlaying(private val context: Context) {
     /** Immutable: every change creates a new Track, so Compose can skip parts that didn't change. */
@@ -38,7 +47,10 @@ class NowPlaying(private val context: Context) {
         val speed: Float = 1f,
         /** Longest side of the artwork's source in px (0 = unknown). Small covers aren't drawn above 2x (ravine#11). */
         val artPx: Int = 0,
+        val mediaId: String? = null,
     ) {
+        internal val artworkKey get() = TrackArtworkKey(pkg, title, artist, album, mediaId)
+
         /** Current position, extrapolated while playing. */
         fun positionNow(): Long {
             val p = if (playing) positionMs + ((SystemClock.elapsedRealtime() - positionAt) * speed).toLong() else positionMs
@@ -54,18 +66,14 @@ class NowPlaying(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private var controllers: List<MediaController> = emptyList()
     /** Art for the current song. Only ever holds real artwork. */
-    private class Art(val key: String, val small: ImageBitmap, val large: ImageBitmap, val px: Int)
-    private var artCache: Art? = null
+    private class Art(val small: ImageBitmap, val large: ImageBitmap, val px: Int)
+    private val artCache = TrackArtwork<Art>()
     /** Song whose art URI failed to load, so it isn't retried on every metadata change. */
-    private var artUriFailed: String? = null
-    /** Song whose artwork hasn't arrived yet, and since when. */
-    private var missingArtKey: String? = null
-    private var missingArtSince = 0L
-    private val recheck = Runnable { recompute() }
+    private var artUriFailed: TrackArtworkKey? = null
     /** Album art is resized here, off the UI thread (song changes stay smooth). */
     private val artWorker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "veil-art").apply { isDaemon = true } }
     /** The song whose artwork is being resized right now. */
-    private var artPending: String? = null
+    private var artPending: TrackArtworkKey? = null
     /** Re-evaluates when a paused session reaches the hide time. */
     private val hideCheck = Runnable { recompute() }
     /** When we first saw each app paused (fallback if the player doesn't timestamp its state). */
@@ -89,7 +97,6 @@ class NowPlaying(private val context: Context) {
     }
 
     fun stop() {
-        handler.removeCallbacks(recheck)
         handler.removeCallbacks(hideCheck)
         runCatching { msm.removeOnActiveSessionsChangedListener(sessionsListener) }
         controllers.forEach { runCatching { it.unregisterCallback(callback) } }
@@ -140,11 +147,14 @@ class NowPlaying(private val context: Context) {
         val artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST)
             ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
             ?: md.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
-        val artKey = "${c.packageName}|$title|$artist"
+        val album = md.getString(MediaMetadata.METADATA_KEY_ALBUM)
+        val mediaId = md.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)
+        val artKey = TrackArtworkKey(c.packageName, title, artist, album, mediaId)
+        if (artPending != artKey) artPending = null
         var small: ImageBitmap? = null
         var large: ImageBitmap? = null
         var artPx = 0
-        val cached = artCache?.takeIf { it.key == artKey }
+        val cached = artCache.forTrack(artKey)
         if (cached != null) {
             small = cached.small; large = cached.large; artPx = cached.px
         } else {
@@ -161,7 +171,6 @@ class NowPlaying(private val context: Context) {
             // A URI is always loaded on the worker (it may be a download); a bitmap is too, except for the very first song.
             val async = source == CoverArt.Source.URI || (source == CoverArt.Source.BITMAP && track != null)
             if (async) {
-                // Until it's done keep the current cover, as in the "artwork arrives a moment later" case below.
                 if (artPending != artKey) {
                     artPending = artKey
                     artWorker.execute {
@@ -170,12 +179,11 @@ class NowPlaying(private val context: Context) {
                         val s96 = b?.let { scaled(it, 96) }; val s640 = b?.let { scaled(it, CoverArt.MAX_PX) }
                         val px = b?.let { maxOf(it.width, it.height) } ?: 0
                         handler.post {
-                            if (artPending == artKey) artPending = null
+                            if (artPending != artKey) return@post
+                            artPending = null
                             if (uri != null && loaded == null) artUriFailed = artKey
                             if (s96 != null && s640 != null) {
-                                artCache = Art(artKey, s96, s640, px)
-                                missingArtKey = null
-                                handler.removeCallbacks(recheck)
+                                artCache.store(artKey, Art(s96, s640, px))
                             }
                             if (controllers.isNotEmpty()) recompute() // not after stop()
                         }
@@ -184,28 +192,11 @@ class NowPlaying(private val context: Context) {
                 if (track == null && bmp != null) {
                     // First song: show the bitmap now; the URI's cover replaces it when it arrives.
                     small = scaled(bmp, 96); large = scaled(bmp, CoverArt.MAX_PX); artPx = maxOf(bmp.width, bmp.height)
-                } else {
-                    small = track?.art; large = track?.artLarge; artPx = track?.artPx ?: 0
                 }
             } else if (bmp != null) {
                 small = scaled(bmp, 96); large = scaled(bmp, CoverArt.MAX_PX); artPx = maxOf(bmp.width, bmp.height)
                 if (small != null && large != null) {
-                    artCache = Art(artKey, small, large, artPx)
-                    missingArtKey = null
-                    handler.removeCallbacks(recheck)
-                }
-            }
-            if (!async && (small == null || large == null)) {
-                // Players often send the new title first and the artwork a moment later. Keep the
-                // previous cover for up to 4 s instead of flashing a placeholder, then give up.
-                val now = System.currentTimeMillis()
-                if (missingArtKey != artKey) { missingArtKey = artKey; missingArtSince = now }
-                if (now - missingArtSince < 4_000) {
-                    small = track?.art; large = track?.artLarge; artPx = track?.artPx ?: 0
-                    handler.removeCallbacks(recheck)
-                    handler.postDelayed(recheck, 4_100)
-                } else {
-                    small = null; large = null; artPx = 0
+                    artCache.store(artKey, Art(small, large, artPx))
                 }
             }
         }
@@ -214,7 +205,7 @@ class NowPlaying(private val context: Context) {
             pkg = c.packageName,
             title = title,
             artist = artist,
-            album = md.getString(MediaMetadata.METADATA_KEY_ALBUM),
+            album = album,
             art = small,
             artLarge = large,
             playing = ps?.state == PlaybackState.STATE_PLAYING,
@@ -223,6 +214,7 @@ class NowPlaying(private val context: Context) {
             positionAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 } ?: SystemClock.elapsedRealtime(),
             speed = ps?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
             artPx = if (small != null) artPx else 0,
+            mediaId = mediaId,
         )
     }
 
