@@ -25,12 +25,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +71,8 @@ import dev.veil.launcher.data.Weather
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+private val LocalMenuPalette = staticCompositionLocalOf { menuPalette(Themes.default) }
 
 /**
  * The "veil" wordmark is a button. While it — or anything in its menu — has focus, the Veil menu drops
@@ -116,7 +120,11 @@ fun VeilMenuAnchor(state: LauncherState) {
         Box(Modifier.floatingBelow(40.dp)) {
             // Kept built while on Home (it was rebuilt from scratch on every open, which stuttered); while
             // closed it isn't placed on screen, so the remote can never move focus into it.
-            KeptPanel(open = state.veilMenuOpen) { VeilPanel(state, anchor) }
+            KeptPanel(open = state.veilMenuOpen) {
+                val theme = ThemeState.current
+                val colors = remember(theme) { menuPalette(theme) }
+                CompositionLocalProvider(LocalMenuPalette provides colors) { VeilPanel(state, anchor) }
+            }
         }
     }
 }
@@ -201,6 +209,7 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
         }
     }
 
+    val colors = LocalMenuPalette.current
     val shape = RoundedCornerShape(10.dp)
     Box(
         Modifier
@@ -211,7 +220,7 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
                 }
             }
             .width(434.dp).heightIn(max = 460.dp).clip(shape)
-            .background(Veil.Sheet).border(1.dp, Veil.Line, shape),
+            .background(colors.sheet).border(1.dp, Veil.Line, shape),
     ) {
         GrainLayer(state.walls.grainLevel, Modifier.matchParentSize())
         val page = section
@@ -226,7 +235,7 @@ private fun VeilPanel(state: LauncherState, anchor: FocusRequester) {
                 Text(date, style = Type.Title, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val place = listOfNotNull(state.weatherPlace, state.weather?.let { "${it.tempC}°" })
                 if (place.isNotEmpty()) {
-                    Text(place.joinToString(" · "), style = Type.Body, fontSize = 10.sp, color = Veil.Muted, maxLines = 1)
+                    Text(place.joinToString(" · "), style = Type.Body, fontSize = 10.sp, color = colors.label, maxLines = 1)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -379,26 +388,29 @@ private fun SectionSettings(
 @Composable
 private fun MenuFooter(text: String) = Text(
     text, style = Type.Body, fontSize = 10.sp,
-    color = Veil.Text.copy(alpha = 0.55f), maxLines = 1,
+    color = LocalMenuPalette.current.label, maxLines = 1,
     modifier = Modifier.padding(top = 6.dp),
 )
 
 @Composable
 private fun QuickAction(label: String, value: String?, modifier: Modifier, onClick: () -> Unit) {
+    val colors = LocalMenuPalette.current
     Surface(
         onClick = { Sfx.select(); onClick() },
         modifier = modifier.focusSound(1.05f),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Veil.Glass, contentColor = Veil.Text,
-            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
+            containerColor = Veil.Glass, contentColor = colors.label,
+            focusedContainerColor = colors.focus, focusedContentColor = Veil.Ink,
+            pressedContainerColor = colors.focus, pressedContentColor = Veil.Ink,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Column(Modifier.height(46.dp).padding(horizontal = 8.dp), verticalArrangement = Arrangement.Center) {
             Text(label, style = Type.Label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (value != null) {
-                Text(value, style = Type.Value, fontSize = 9.sp, color = LocalContentColor.current.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val valueColor = if (LocalContentColor.current == Veil.Ink) colors.focusValue else colors.value
+                Text(value, style = Type.Value, fontSize = 9.sp, color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -408,12 +420,11 @@ private fun QuickAction(label: String, value: String?, modifier: Modifier, onCli
 @Composable
 private fun Note(text: String) = Text(
     text, style = Type.Body, fontSize = 10.sp,
-    color = Veil.Text.copy(alpha = 0.5f), modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
+    color = LocalMenuPalette.current.label, modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
 )
 
 /**
- * One line of the index: the setting on the left, its value on the right in sentence case and the muted
- * text colour (ravine#15). Focus fills the line in bone with dark text, like the dock.
+ * One line of the index: the setting on the left and its value in the Look's accent on the right.
  */
 @Composable
 private fun IndexRow(
@@ -424,14 +435,15 @@ private fun IndexRow(
     swatch: Color? = null,
     onClick: () -> Unit,
 ) {
-    var focused by remember { mutableStateOf(false) }
+    val colors = LocalMenuPalette.current
     Surface(
         onClick = { Sfx.select(); onClick() },
-        modifier = modifier.fillMaxWidth().focusSound(1.05f).onFocusChanged { focused = it.isFocused },
+        modifier = modifier.fillMaxWidth().focusSound(1.05f),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent, contentColor = Veil.Text,
-            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
+            containerColor = Color.Transparent, contentColor = colors.label,
+            focusedContainerColor = colors.focus, focusedContentColor = Veil.Ink,
+            pressedContainerColor = colors.focus, pressedContentColor = Veil.Ink,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
@@ -441,7 +453,7 @@ private fun IndexRow(
                 Box(Modifier.size(8.dp).clip(CircleShape).background(swatch))
                 Spacer(Modifier.width(7.dp))
             }
-            val valueColor = if (focused) Veil.Ink.copy(alpha = 0.75f) else Veil.Muted
+            val valueColor = if (LocalContentColor.current == Veil.Ink) colors.focusValue else colors.value
             if (value != null) {
                 Text(
                     value, style = Type.Value, fontSize = 11.sp,

@@ -108,6 +108,7 @@ They're out of scope.
 | D61 | Finished games show up to three highlight cards below At a glance and Top performers. Each card uses a YouTube thumbnail built from a validated video ID and shows a play glyph when the image is unavailable. Left and Right move across the cards. OK prefers SmartTube and falls back to Android’s YouTube link handler | ravine#21, ravine#31 and courtside#240 |
 | D62 | Scores standings show NFL, NBA, the college football AP Top 25, and MLB while Courtside reports it is in season. Team logos and colour bars appear when supplied, with a light tint for favourites. Conference headers show their supplied logos. Cutoffs follow seed 7 in the NFL and seeds 6 and 10 in the NBA. The AP poll shows current rank and an arrow for a change from the previous rank | ravine#30, ravine#37 |
 | D63 | Scores logos decode at twice their drawn pixel size and downscale with high-quality filtering. Standings logos draw at 16 dp in the existing row slots. Debug startup logs the UI canvas, density and display mode | ravine#42 |
+| D64 | The Ravine menu follows the selected Look. The sheet takes a light tint from the accent, values use brighter accent text, and focused rows and quick actions fill with the accent. Menu text meets the 4.5:1 contrast threshold in all eleven Looks | ravine#43 |
 
 ## 4. Platform facts that shape the code (Shield, API 30)
 

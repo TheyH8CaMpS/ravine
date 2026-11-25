@@ -45,6 +45,7 @@ import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.Updates
 import dev.veil.launcher.data.WatchItem
 import dev.veil.launcher.data.YouTubeShows
+import dev.veil.launcher.ui.Themes
 import dev.veil.launcher.ui.VeilApp
 import dev.veil.launcher.ui.VeilTheme
 import kotlinx.coroutines.CoroutineScope
@@ -271,6 +272,26 @@ class PreviewShots {
         val after = requireNotNull(state.walls.current)
         assertNotEquals(before.url, after.url)
         compose.onNode(nextPhoto and hasText("Now: ${after.title}")).assertIsDisplayed()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun menuLooks() {
+        val state = newState()
+        state.setTheme(Themes.default)
+        shoot("menu-look-ravine-quick", state) { it.veilMenuOpen = true }
+        fun button(label: String) = compose.onNode(hasText(label) and hasClickAction())
+        var row = "Next photo"
+        for (target in listOf("Wallpaper", "Ambient", "Look", "Game day")) {
+            button(row).assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+            compose.mainClock.advanceTimeBy(150)
+            row = target
+        }
+        button(row).assertIsFocused()
+        for (theme in Themes.all) {
+            compose.runOnUiThread { state.setTheme(theme) }
+            compose.mainClock.advanceTimeBy(150)
+            capture("menu-look-${theme.id}")
+        }
     }
 
     @OptIn(ExperimentalTestApi::class)
