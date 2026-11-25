@@ -33,6 +33,7 @@ import coil.decode.DataSource
 import coil.intercept.Interceptor
 import coil.request.ImageResult
 import coil.request.SuccessResult
+import coil.size.Dimension
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.AppEntry
 import dev.veil.launcher.data.CourtsideScores
@@ -90,8 +91,11 @@ class PreviewShots {
                         if ("/logo/" in data) {
                             // Stand-in team logo: a disc in the team's colour with its abbreviation.
                             val (abbr, hex) = data.substringAfterLast('/').substringBefore('.').split('-')
-                            val b = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+                            // Mirror Coil's requested decode size while keeping the fixture offline.
+                            val size = (chain.size.width as? Dimension.Pixels)?.px ?: 64
+                            val b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
                             val c = android.graphics.Canvas(b)
+                            c.scale(size / 64f, size / 64f)
                             val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
                             p.color = android.graphics.Color.parseColor("#$hex"); c.drawCircle(32f, 32f, 30f, p)
                             p.color = android.graphics.Color.WHITE; p.textSize = 22f; p.textAlign = android.graphics.Paint.Align.CENTER
