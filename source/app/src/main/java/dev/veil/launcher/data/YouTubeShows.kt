@@ -51,10 +51,19 @@ object YouTubeShows {
         val prefs = context.getSharedPreferences("ravine_shows", Context.MODE_PRIVATE)
         val seen = (prefs.getStringSet("opened", emptySet())!!.toList().takeLast(30) + videoId).toSet()
         prefs.edit().putStringSet("opened", seen).apply()
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId"))
+        return openVideo(context, videoId)
+    }
+
+    /** Open a video without marking it as a watched Yak episode. */
+    fun openVideo(context: Context, videoId: String): Boolean {
+        val uri = Uri.Builder().scheme("https").authority("www.youtube.com").path("/watch")
+            .appendQueryParameter("v", videoId).build()
+        val intent = Intent(Intent.ACTION_VIEW, uri)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val pm = context.packageManager
-        SMARTTUBE.firstOrNull { p -> runCatching { pm.getPackageInfo(p, 0) }.isSuccess }?.let { intent.setPackage(it) }
+        val smartTube = NetflixButton.smartTube(context)
+        if (smartTube != null && runCatching {
+            context.startActivity(Intent(intent).setPackage(smartTube))
+        }.isSuccess) return true
         return runCatching { context.startActivity(intent) }.isSuccess
     }
 

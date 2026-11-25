@@ -105,4 +105,27 @@ class CourtsideScoresTest {
         assertTrue(!rows[3].onRoster) // missing → false
         assertTrue(CourtsideScores.parseNotable("[]").isEmpty())
     }
+
+    @Test fun parsesUpToThreeValidHighlightVideos() {
+        val detail = CourtsideScores.parseDetail(
+            """{"highlights":[
+              {"title":"Bad ID","videoId":"watch?v=invalid"},
+              {"title":"  Full game recap  ","videoId":"fixture0001"},
+              {"title":"Duplicate","videoId":"fixture0001"},
+              {"title":"Fourth quarter","videoId":"fixture0002"},
+              {"title":" ","videoId":"fixture0003"},
+              {"title":"Game-winning drive","videoId":"fixture0004"},
+              {"title":"Fourth valid clip","videoId":"fixture0005"}]}""",
+        )
+        assertEquals(
+            listOf(
+                CourtsideScores.Highlight("Full game recap", "fixture0001"),
+                CourtsideScores.Highlight("Fourth quarter", "fixture0002"),
+                CourtsideScores.Highlight("Game-winning drive", "fixture0004"),
+            ),
+            detail.highlights,
+        )
+        assertTrue(CourtsideScores.parseDetail("{}").highlights.isEmpty())
+        assertTrue(CourtsideScores.parseDetail("""{"highlights":null}""").highlights.isEmpty())
+    }
 }

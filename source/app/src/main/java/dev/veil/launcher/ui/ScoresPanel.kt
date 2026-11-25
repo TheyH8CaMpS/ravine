@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -63,6 +65,7 @@ import coil.compose.AsyncImage
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.CourtsideScores.Score
+import dev.veil.launcher.data.YouTubeShows
 import dev.veil.launcher.state.ScoresState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -401,6 +404,19 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val stepPx = with(LocalDensity.current) { 90.dp.toPx() }
+    val detail = s.detail
+    val highlights = if (g.final) detail?.highlights.orEmpty() else emptyList()
+    fun scrollAtEnd(event: KeyEvent, atTop: Boolean, atBottom: Boolean): Boolean {
+        if (event.type != KeyEventType.KeyDown) return false
+        val distance = when (event.key) {
+            Key.DirectionDown -> if (atBottom) stepPx else return false
+            Key.DirectionUp -> if (atTop) -stepPx else return false
+            Key.DirectionLeft, Key.DirectionRight -> return true
+            else -> return false
+        }
+        scope.launch { scroll.animateScrollBy(distance) }
+        return true
+    }
     val (away, home) = g.teams.getOrNull(0) to g.teams.getOrNull(1)
     Eyebrow(CourtsideScores.leagueLabel(g.league))
     Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -418,33 +434,39 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
     }
     // Why Courtside picked it (Worth watching), in its own words.
     g.pick?.let { Text(it, fontSize = 7.sp, color = Veil.Accent.copy(alpha = 0.9f), modifier = Modifier.padding(top = 2.dp)) }
-    // Watch: the "Watch games in" app (TiviMate). Up/Down here scroll the page; the page has nothing else to focus.
-    Surface(
+    // Up/Down moves among the action pills and scrolls the details at either end.
+    GameAction(
         onClick = { Sfx.select(); s.close(); state.gameDay.openWatchApp() },
-        modifier = Modifier.padding(top = 9.dp).fillMaxWidth().focusRequester(watch).onPreviewKeyEvent {
-            if (it.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-            when (it.key) {
-                Key.DirectionDown -> { scope.launch { scroll.animateScrollBy(stepPx) }; true }
-                Key.DirectionUp -> { scope.launch { scroll.animateScrollBy(-stepPx) }; true }
-                Key.DirectionLeft, Key.DirectionRight -> true
-                else -> false
-            }
+        modifier = Modifier.padding(top = 9.dp).focusRequester(watch).onPreviewKeyEvent {
+            scrollAtEnd(it, atTop = true, atBottom = highlights.isEmpty())
         },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Veil.Text.copy(alpha = 0.12f), contentColor = Veil.Text,
-            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("▶  Watch in ${state.gameDay.watchWithLabel}", fontSize = 8.sp, fontWeight = FontWeight.Bold)
-            g.channel?.let { Text("   $it", fontSize = 7.sp, modifier = Modifier.graphicsAlpha(0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        Text("▶  Watch in ${state.gameDay.watchWithLabel}", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        g.channel?.let { Text("   $it", fontSize = 7.sp, modifier = Modifier.graphicsAlpha(0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    }
+    highlights.forEachIndexed { index, highlight ->
+        GameAction(
+            modifier = Modifier.padding(top = 4.dp).onPreviewKeyEvent {
+                scrollAtEnd(it, atTop = false, atBottom = index == highlights.lastIndex)
+            },
+            onClick = {
+                Sfx.select()
+                if (!YouTubeShows.openVideo(context, highlight.videoId)) state.showToast("No app could open this highlight.")
+            },
+        ) {
+            if (index == 0) {
+                Text("▶  Watch highlights", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+            } else {
+                Text("▶", fontSize = 8.sp)
+                Spacer(Modifier.width(5.dp))
+            }
+            Text(highlight.title, style = Type.Body, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
     LaunchedEffect(g.id) { delay(60); runCatching { watch.requestFocus() } }
 
-    val d = s.detail
+    val d = detail
     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll)) {
         if (d == null) { Note("Loading…"); return@Column }
         if (d.compare.isNotEmpty()) {
@@ -471,7 +493,23 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
         if (d.compare.isEmpty() && d.performers.isEmpty() && d.moments.isEmpty()) Note("Details appear once the game starts.")
         Spacer(Modifier.height(10.dp))
     }
-    Hint("Back scores  ·  ▲ ▼ scroll")
+    Hint(if (highlights.isEmpty()) "Back scores  ·  ▲ ▼ scroll" else "Back scores  ·  ▲ ▼ move or scroll")
+}
+
+@Composable
+private fun GameAction(modifier: Modifier, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Veil.Text.copy(alpha = 0.12f), contentColor = Veil.Text,
+            focusedContainerColor = Veil.Text, focusedContentColor = Veil.Ink,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+    }
 }
 
 private fun Modifier.graphicsAlpha(a: Float) = this.graphicsLayer { alpha = a }
