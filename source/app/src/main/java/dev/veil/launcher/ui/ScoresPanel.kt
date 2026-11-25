@@ -337,10 +337,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(
         if (s.standings.isEmpty()) item { NoteRow("Loading standings…", Modifier.focusRequester(firstRow).then(rowKeys)) }
         var first = true
         s.standings.forEachIndexed { leagueIndex, (league, st) ->
+            val apPoll = league == "NCAAF"
             val favorites = MyTeams.all.filter { it.league.label == league && it.key in favoriteTeams }.associate { it.espnId to it.color }
             item(key = "l-$league") {
                 Text(
-                    CourtsideScores.leagueLabel(league), style = Type.Title, fontSize = 12.sp,
+                    if (apPoll) "College Football" else CourtsideScores.leagueLabel(league),
+                    style = Type.Title, fontSize = 12.sp,
                     modifier = Modifier.padding(top = if (leagueIndex == 0) 6.dp else 16.dp),
                 )
             }
@@ -348,13 +350,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(
                 val table = CourtsideScores.standingTable(league, group)
                 val firstGroup = first && table.rows.isNotEmpty()
                 if (firstGroup) first = false
-                item(key = "$league-g$gi") { Section(group.name) }
+                item(key = "$league-g$gi") { Section(group.name, group.logo) }
                 items(table.rows.size, key = { "$league-g$gi-$it" }) { ri ->
                     val row = table.rows[ri]
                     val place = ri + 1
                     val m = if (firstGroup && ri == 0) Modifier.focusRequester(firstRow) else Modifier
                     Column {
-                        StandingRow(place, row, row.teamId?.let(favorites::get), m.then(rowKeys))
+                        StandingRow(place, row, row.teamId?.let(favorites::get), m.then(rowKeys), apPoll)
                         if (place in table.cutoffs) {
                             Box(Modifier.fillMaxWidth().padding(vertical = 2.dp).height(0.5.dp).background(Veil.Text.copy(alpha = 0.28f)))
                         }
@@ -424,10 +426,14 @@ private fun NotableRow(n: CourtsideScores.Notable, logoTeam: CourtsideScores.Tea
 }
 
 @Composable
-private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, favoriteColor: Long?, modifier: Modifier) {
+private fun StandingRow(
+    place: Int, r: CourtsideScores.StandingRow, favoriteColor: Long?, modifier: Modifier, apPoll: Boolean,
+) {
     val team = (r.color ?: favoriteColor)?.let { Color(it) }
     val favorite = team?.takeIf { favoriteColor != null }
     val streak = if (r.streak?.startsWith("W", ignoreCase = true) == true) team ?: Dim else Dim
+    val rank = r.rank.takeIf { apPoll }
+    val change = if (rank != null && r.previousRank != null) r.previousRank - rank else 0
     Surface(
         onClick = {},
         modifier = modifier.fillMaxWidth(),
@@ -439,16 +445,26 @@ private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, favoriteColo
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$place", style = Type.Value, fontSize = 8.sp, color = Dim, modifier = Modifier.width(16.dp))
+            Text("${rank ?: place}", style = Type.Value, fontSize = 8.sp, color = Dim, modifier = Modifier.width(16.dp))
+            if (apPoll) {
+                val marker = when {
+                    change > 0 -> "▲"
+                    change < 0 -> "▼"
+                    else -> ""
+                }
+                Text(marker, fontSize = 6.sp, color = Dim, modifier = Modifier.width(10.dp))
+            }
             Box(Modifier.width(3.dp).height(11.dp).clip(RoundedCornerShape(1.dp)).background(team ?: Color.Transparent))
             Spacer(Modifier.width(5.dp))
             TeamLogo(r.logo, team ?: Dim, 12.dp, slotHeight = 10.dp)
             Spacer(Modifier.width(6.dp))
             Text(r.name, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(r.record, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
-            Text(r.points?.let { "$it pts" } ?: r.gamesBack?.let { if (it == "-" || it == "0") "—" else "$it GB" } ?: "",
-                fontSize = 7.sp, color = Dim, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
-            Text(r.streak ?: "", fontSize = 7.sp, color = streak, modifier = Modifier.width(30.dp), textAlign = TextAlign.End)
+            if (!apPoll) {
+                Text(r.points?.let { "$it pts" } ?: r.gamesBack?.let { if (it == "-" || it == "0") "—" else "$it GB" } ?: "",
+                    fontSize = 7.sp, color = Dim, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
+                Text(r.streak ?: "", fontSize = 7.sp, color = streak, modifier = Modifier.width(30.dp), textAlign = TextAlign.End)
+            }
         }
     }
 }
@@ -680,9 +696,14 @@ private fun Eyebrow(text: String) =
 
 /** "Live now ————": the menu's section style (sentence case, no numerals; ravine#15). */
 @Composable
-private fun Section(name: String) {
+private fun Section(name: String, logo: String? = null) {
+    val textSize = 7.sp
     Row(Modifier.fillMaxWidth().padding(top = 11.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(name, style = Type.Label, fontSize = 7.sp, color = Dim)
+        if (logo != null) {
+            TeamLogo(logo, Dim, with(LocalDensity.current) { textSize.toDp() })
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(name, style = Type.Label, fontSize = textSize, color = Dim)
         Spacer(Modifier.width(6.dp))
         Box(Modifier.weight(1f).height(0.5.dp).background(Faint))
     }

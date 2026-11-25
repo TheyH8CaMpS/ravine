@@ -86,7 +86,7 @@ class ScoresState internal constructor(
     var detail by mutableStateOf<CourtsideScores.Detail?>(null)
         private set
 
-    /** Standings by league, in tab order (leagues playing today, plus the owner's: NFL, NBA, MLB). */
+    /** NFL, NBA, the college AP poll, and MLB when Courtside reports that it is in season. */
     var standings by mutableStateOf<List<Pair<String, CourtsideScores.Standings>>>(emptyList())
         private set
     private var standingsLoaded = 0L
@@ -213,12 +213,14 @@ class ScoresState internal constructor(
         val now = System.currentTimeMillis()
         if (now - standingsLoaded < 10 * 60_000L && standings.isNotEmpty()) return
         standingsLoaded = now
-        val leagues = CourtsideScores.LEAGUE_ORDER.filter { l -> l != "UFC" && (l in listOf("NFL", "NBA", "MLB") || games.any { it.league == l }) }
         scope.launch {
             val loaded = withContext(Dispatchers.IO) {
-                leagues.mapNotNull { l ->
-                    runCatching { fetcher("/api/tv/standings?league=$l")?.let { CourtsideScores.parseStandings(it) } }.getOrNull()
-                        ?.takeIf { it.groups.isNotEmpty() }?.let { l to it }
+                listOf("NFL", "NBA", "NCAAF", "MLB").mapNotNull { league ->
+                    runCatching {
+                        fetcher("/api/tv/standings?league=$league")?.let(CourtsideScores::parseStandings)
+                    }.getOrNull()
+                        ?.takeIf { it.groups.isNotEmpty() && (league != "MLB" || it.inSeason) }
+                        ?.let { league to it }
                 }
             }
             standings = loaded

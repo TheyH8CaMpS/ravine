@@ -79,6 +79,38 @@ class ScoresStateTest {
         assertNull(c.load(today.plusDays(1)))
     }
 
+    @Test fun standingsUsesTheFixedLeagueOrderAndRequiresAnInSeasonMlbResponse() {
+        for (inSeason in listOf(false, null, true)) {
+            val asked = mutableListOf<String>()
+            val s = ScoresState(
+                CoroutineScope(Dispatchers.Unconfined),
+                fetcher = { path ->
+                    when {
+                        path.startsWith("/api/tv/standings") -> {
+                            asked += path.substringAfter("league=")
+                            val seasonFlag = inSeason?.let { """"inSeason":$it,""" }.orEmpty()
+                            """{$seasonFlag"standings":{"groups":[{"name":"Fixture","rows":[{"name":"Fixture team"}]}]}}"""
+                        }
+                        path.startsWith("/api/tv/scores") -> board("NHL-1").replace("\"NBA\"", "\"NHL\"")
+                        else -> "[]"
+                    }
+                },
+                configured = { true },
+                cache = ScoresCache(File(tmp.newFolder(), "scores.json")),
+                today = { today },
+            )
+            s.show()
+            waitUntil { !s.loading }
+            assertEquals("NHL", s.games.single().league)
+            s.selectTab(ScoresState.STANDINGS)
+            waitUntil { s.standings.isNotEmpty() }
+
+            assertEquals(listOf("NFL", "NBA", "NCAAF", "MLB"), asked)
+            val expected = listOf("NFL", "NBA", "NCAAF") + listOf("MLB").filter { inSeason == true }
+            assertEquals(expected, s.standings.map { it.first })
+        }
+    }
+
     // ravine#22: Notable lines are today's, or last night's while today has none; the tab shows only with lines.
     private fun notableState(byDate: Map<String, String>, asked: MutableList<String>) = ScoresState(
         CoroutineScope(Dispatchers.Unconfined),

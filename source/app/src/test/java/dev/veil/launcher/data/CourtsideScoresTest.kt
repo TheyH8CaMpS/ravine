@@ -48,11 +48,12 @@ class CourtsideScoresTest {
 
     @Test fun parsesOptionalStandingsBranding() {
         val standings = CourtsideScores.parseStandings(
-            """{"standings":{"groups":[{"name":"AFC West","rows":[
+            """{"standings":{"groups":[{"name":"AFC West","logo":"https://preview.invalid/logo/AFC-C13C44.png","rows":[
                {"teamId":"7","name":"Broncos","color":"#f18b5a","logo":"https://preview/logo/den.png"},
                {"teamId":"13","name":"Raiders","color":"not a colour","logo":null},
                {"name":"Chiefs"}]}]}}""",
         )!!
+        assertEquals("https://preview.invalid/logo/AFC-C13C44.png", standings.groups.single().logo)
         val (branded, noBrand, old) = standings.groups.single().rows
         assertEquals("7", branded.teamId)
         assertEquals("https://preview/logo/den.png", branded.logo)
@@ -63,6 +64,22 @@ class CourtsideScoresTest {
         assertNull(old.teamId)
         assertNull(old.logo)
         assertNull(old.color)
+    }
+
+    @Test fun parsesAllTwentyFiveAPTeamsAndOptionalPreviousRanks() {
+        val input = javaClass.getResourceAsStream("/courtside/tv-ap-top-25.json")!!.bufferedReader().use { it.readText() }
+        val group = CourtsideScores.parseStandings(input)!!.groups.single()
+        val table = CourtsideScores.standingTable("NCAAF", group)
+
+        assertEquals("AP Top 25", group.name)
+        assertEquals((1..25).toList(), table.rows.map { it.rank })
+        assertEquals(listOf(2, 1, 3, null), table.rows.take(4).map { it.previousRank })
+        assertEquals("Ohio State", table.rows.first().name)
+        assertEquals("11-0", table.rows.first().record)
+        assertEquals(0xFFBB0000L, table.rows.first().color)
+        assertEquals("https://preview.invalid/logo/OSU-BB0000.png", table.rows.first().logo)
+        assertNull(group.logo)
+        assertTrue(table.cutoffs.isEmpty())
     }
 
     @Test fun drawsCutoffsForConferenceSeedsOnly() {

@@ -1,0 +1,39 @@
+{
+  "league": "NCAAF",
+  "inSeason": true,
+  "standings": {
+    "season": "2026",
+    "groups": [
+      {
+        "name": "AP Top 25",
+        "rows": [
+          {"teamId":"1001","abbr":"OSU","name":"Ohio State","record":"11-0","logo":"https://preview.invalid/logo/OSU-BB0000.png","color":"#BB0000","rank":1,"previousRank":2},
+          {"teamId":"1002","abbr":"IND","name":"Indiana","record":"11-0","logo":"https://preview.invalid/logo/IND-990000.png","color":"#990000","rank":2,"previousRank":1},
+          {"teamId":"1003","abbr":"UGA","name":"Georgia","record":"10-1","logo":"https://preview.invalid/logo/UGA-BA0C2F.png","color":"#BA0C2F","rank":3,"previousRank":3},
+          {"teamId":"1004","abbr":"ORE","name":"Oregon","record":"10-1","logo":"https://preview.invalid/logo/ORE-467144.png","color":"#467144","rank":4},
+          {"teamId":"1005","abbr":"TAMU","name":"Texas A&M","record":"10-1","logo":"https://preview.invalid/logo/TAMU-7A2F3D.png","color":"#7A2F3D","rank":5},
+          {"teamId":"1006","abbr":"MISS","name":"Ole Miss","record":"10-1","logo":"https://preview.invalid/logo/MISS-D34A60.png","color":"#D34A60","rank":6},
+          {"teamId":"1007","abbr":"TTU","name":"Texas Tech","record":"10-1","logo":"https://preview.invalid/logo/TTU-CC2031.png","color":"#CC2031","rank":7,"previousRank":9},
+          {"teamId":"1008","abbr":"OU","name":"Oklahoma","record":"9-2","logo":"https://preview.invalid/logo/OU-A43A47.png","color":"#A43A47","rank":8},
+          {"teamId":"1009","abbr":"ND","name":"Notre Dame","record":"9-2","logo":"https://preview.invalid/logo/ND-0C6A55.png","color":"#0C6A55","rank":9},
+          {"teamId":"1010","abbr":"ALA","name":"Alabama","record":"9-2","logo":"https://preview.invalid/logo/ALA-B93755.png","color":"#B93755","rank":10,"previousRank":8},
+          {"teamId":"1011","abbr":"BYU","name":"BYU","record":"9-2","logo":"https://preview.invalid/logo/BYU-315899.png","color":"#315899","rank":11},
+          {"teamId":"1012","abbr":"MIA","name":"Miami","record":"9-2","logo":"https://preview.invalid/logo/MIA-F47736.png","color":"#F47736","rank":12},
+          {"teamId":"1013","abbr":"TEX","name":"Texas","record":"9-2","logo":"https://preview.invalid/logo/TEX-CF6A28.png","color":"#CF6A28","rank":13},
+          {"teamId":"1014","abbr":"VAN","name":"Vanderbilt","record":"9-2","logo":"https://preview.invalid/logo/VAN-AA925B.png","color":"#AA925B","rank":14},
+          {"teamId":"1015","abbr":"UTAH","name":"Utah","record":"9-2","logo":"https://preview.invalid/logo/UTAH-CE345A.png","color":"#CE345A","rank":15},
+          {"teamId":"1016","abbr":"USC","name":"USC","record":"8-3","logo":"https://preview.invalid/logo/USC-B53246.png","color":"#B53246","rank":16},
+          {"teamId":"1017","abbr":"MICH","name":"Michigan","record":"8-3","logo":"https://preview.invalid/logo/MICH-4472A5.png","color":"#4472A5","rank":17},
+          {"teamId":"1018","abbr":"UVA","name":"Virginia","record":"8-3","logo":"https://preview.invalid/logo/UVA-ED7822.png","color":"#ED7822","rank":18},
+          {"teamId":"1019","abbr":"TENN","name":"Tennessee","record":"8-3","logo":"https://preview.invalid/logo/TENN-F58B26.png","color":"#F58B26","rank":19},
+          {"teamId":"1020","abbr":"GT","name":"Georgia Tech","record":"8-3","logo":"https://preview.invalid/logo/GT-B19C65.png","color":"#B19C65","rank":20},
+          {"teamId":"1021","abbr":"UW","name":"Washington","record":"8-3","logo":"https://preview.invalid/logo/UW-7754A5.png","color":"#7754A5","rank":21},
+          {"teamId":"1022","abbr":"TULN","name":"Tulane","record":"8-3","logo":"https://preview.invalid/logo/TULN-2F9278.png","color":"#2F9278","rank":22},
+          {"teamId":"1023","abbr":"PITT","name":"Pittsburgh","record":"7-4","logo":"https://preview.invalid/logo/PITT-3773B2.png","color":"#3773B2","rank":23},
+          {"teamId":"1024","abbr":"JMU","name":"James Madison","record":"7-4","logo":"https://preview.invalid/logo/JMU-7757A3.png","color":"#7757A3","rank":24},
+          {"teamId":"1025","abbr":"SMU","name":"SMU","record":"7-4","logo":"https://preview.invalid/logo/SMU-3973BF.png","color":"#3973BF","rank":25}
+        ]
+      }
+    ]
+  }
+}

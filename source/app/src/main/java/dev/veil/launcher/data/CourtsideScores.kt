@@ -51,9 +51,10 @@ object CourtsideScores {
     data class StandingRow(
         val abbr: String, val name: String, val record: String, val gamesBack: String?, val points: String?, val streak: String?,
         val teamId: String? = null, val logo: String? = null, val color: Long? = null,
+        val rank: Int? = null, val previousRank: Int? = null,
     )
-    data class StandingGroup(val name: String, val rows: List<StandingRow>)
-    data class Standings(val season: String, val groups: List<StandingGroup>)
+    data class StandingGroup(val name: String, val rows: List<StandingRow>, val logo: String? = null)
+    data class Standings(val season: String, val groups: List<StandingGroup>, val inSeason: Boolean = false)
     data class StandingTable(val rows: List<StandingRow>, val cutoffs: List<Int>)
 
     private val footballConferences = setOf("afc", "nfc", "american football", "national football")
@@ -139,17 +140,25 @@ object CourtsideScores {
     }
 
     fun parseStandings(text: String): Standings? {
-        val s = JSONObject(text).optJSONObject("standings") ?: return null
+        val payload = JSONObject(text)
+        val s = payload.optJSONObject("standings") ?: return null
         return Standings(
             s.optString("season"),
             s.optJSONArray("groups").objects().map { g ->
-                StandingGroup(g.optString("name"), g.optJSONArray("rows").objects().map { r ->
-                    StandingRow(
-                        r.optString("abbr"), r.optString("name"), r.optString("record"), r.str("gamesBack"), r.str("points"), r.str("streak"),
-                        teamId = r.str("teamId"), logo = r.str("logo"), color = argb(r.str("color")),
-                    )
-                })
+                StandingGroup(
+                    name = g.optString("name"),
+                    rows = g.optJSONArray("rows").objects().map { r ->
+                        StandingRow(
+                            r.optString("abbr"), r.optString("name"), r.optString("record"), r.str("gamesBack"), r.str("points"), r.str("streak"),
+                            teamId = r.str("teamId"), logo = r.str("logo"), color = argb(r.str("color")),
+                            rank = r.optInt("rank").takeIf { it in 1..25 },
+                            previousRank = r.optInt("previousRank").takeIf { it in 1..25 },
+                        )
+                    },
+                    logo = g.str("logo"),
+                )
             },
+            inSeason = payload.opt("inSeason") == true,
         )
     }
 
