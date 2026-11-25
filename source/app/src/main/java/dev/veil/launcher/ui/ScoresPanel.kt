@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +40,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.input.key.Key
@@ -62,6 +64,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.CourtsideScores.Score
@@ -401,6 +404,7 @@ private fun StandingRow(place: Int, r: CourtsideScores.StandingRow, modifier: Mo
 private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: LauncherState, s: ScoresState, g: Score) {
     val context = LocalContext.current
     val watch = remember { FocusRequester() }
+    val firstHighlight = remember { FocusRequester() }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val stepPx = with(LocalDensity.current) { 90.dp.toPx() }
@@ -411,7 +415,6 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
         val distance = when (event.key) {
             Key.DirectionDown -> if (atBottom) stepPx else return false
             Key.DirectionUp -> if (atTop) -stepPx else return false
-            Key.DirectionLeft, Key.DirectionRight -> return true
             else -> return false
         }
         scope.launch { scroll.animateScrollBy(distance) }
@@ -434,35 +437,15 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
     }
     // Why Courtside picked it (Worth watching), in its own words.
     g.pick?.let { Text(it, fontSize = 7.sp, color = Veil.Accent.copy(alpha = 0.9f), modifier = Modifier.padding(top = 2.dp)) }
-    // Up/Down moves among the action pills and scrolls the details at either end.
+    // Down reaches the highlight row when available, or scrolls the details.
     GameAction(
         onClick = { Sfx.select(); s.close(); state.gameDay.openWatchApp() },
-        modifier = Modifier.padding(top = 9.dp).focusRequester(watch).onPreviewKeyEvent {
-            scrollAtEnd(it, atTop = true, atBottom = highlights.isEmpty())
-        },
+        modifier = Modifier.padding(top = 9.dp).focusRequester(watch)
+            .focusProperties { if (highlights.isNotEmpty()) down = firstHighlight }
+            .onPreviewKeyEvent { scrollAtEnd(it, atTop = true, atBottom = highlights.isEmpty()) },
     ) {
         Text("▶  Watch in ${state.gameDay.watchWithLabel}", fontSize = 8.sp, fontWeight = FontWeight.Bold)
         g.channel?.let { Text("   $it", fontSize = 7.sp, modifier = Modifier.graphicsAlpha(0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-    }
-    highlights.forEachIndexed { index, highlight ->
-        GameAction(
-            modifier = Modifier.padding(top = 4.dp).onPreviewKeyEvent {
-                scrollAtEnd(it, atTop = false, atBottom = index == highlights.lastIndex)
-            },
-            onClick = {
-                Sfx.select()
-                if (!YouTubeShows.openVideo(context, highlight.videoId)) state.showToast("No app could open this highlight.")
-            },
-        ) {
-            if (index == 0) {
-                Text("▶  Watch highlights", fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.width(8.dp))
-            } else {
-                Text("▶", fontSize = 8.sp)
-                Spacer(Modifier.width(5.dp))
-            }
-            Text(highlight.title, style = Type.Body, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
     }
     LaunchedEffect(g.id) { delay(60); runCatching { watch.requestFocus() } }
 
@@ -486,14 +469,73 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
                 }
             }
         }
+        if (highlights.isNotEmpty()) {
+            Section("Highlights")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                highlights.forEachIndexed { index, highlight ->
+                    val anchor = if (index == 0) Modifier.focusRequester(firstHighlight) else Modifier
+                    HighlightCard(
+                        highlight,
+                        anchor.focusProperties { up = watch }
+                            .onPreviewKeyEvent { scrollAtEnd(it, atTop = false, atBottom = true) },
+                    ) {
+                        Sfx.select()
+                        if (!YouTubeShows.openVideo(context, highlight.videoId)) state.showToast("No app could open this highlight.")
+                    }
+                }
+            }
+        }
         if (d.moments.isNotEmpty()) {
             Section("The moments that mattered")
             d.moments.forEach { m -> MomentRow(m, g) }
         }
-        if (d.compare.isEmpty() && d.performers.isEmpty() && d.moments.isEmpty()) Note("Details appear once the game starts.")
+        if (d.compare.isEmpty() && d.performers.isEmpty() && d.moments.isEmpty() && highlights.isEmpty()) {
+            Note("Details appear once the game starts.")
+        }
         Spacer(Modifier.height(10.dp))
     }
-    Hint(if (highlights.isEmpty()) "Back scores  ·  ▲ ▼ scroll" else "Back scores  ·  ▲ ▼ move or scroll")
+    Hint(if (highlights.isEmpty()) "Back scores  ·  ▲ ▼ scroll" else "Back scores  ·  ◀ ▶ highlights  ·  ▲ ▼ move or scroll")
+}
+
+@Composable
+private fun HighlightCard(highlight: CourtsideScores.Highlight, modifier: Modifier, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val thumbnail = remember(context, highlight.videoId) {
+        highlight.thumbnailUrl()?.let { ImageRequest.Builder(context).data(it).size(320, 180).build() }
+    }
+    val shape = RoundedCornerShape(7.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.width(114.dp).focusSound(),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Faint, contentColor = Veil.Text,
+            focusedContainerColor = Faint, focusedContentColor = Veil.Text,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(androidx.compose.foundation.BorderStroke(1.dp, Veil.Accent), shape = shape),
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+    ) {
+        Column(Modifier.padding(4.dp)) {
+            Box(
+                Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(4.dp)).background(Faint),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("▶", fontSize = 15.sp, color = Dim, modifier = Modifier.clearAndSetSemantics { })
+                if (thumbnail != null) {
+                    AsyncImage(
+                        model = thumbnail, contentDescription = null, modifier = Modifier.matchParentSize(),
+                        contentScale = ContentScale.Crop, filterQuality = FilterQuality.High,
+                    )
+                }
+            }
+            Text(
+                highlight.title, modifier = Modifier.padding(top = 4.dp), style = Type.Body,
+                fontSize = 8.sp, lineHeight = 10.sp, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 @Composable

@@ -98,7 +98,11 @@ class PreviewShots {
                             p.isFakeBoldText = true; c.drawText(abbr, 32f, 40f, p)
                             return SuccessResult(BitmapDrawable(context.resources, b), chain.request, DataSource.MEMORY)
                         }
-                        val bmp = when { "lakers" in data -> lakers; "la.jpg" in data -> la; else -> wall }
+                        val bmp = when {
+                            "/vi/fixture0001/" in data || "lakers" in data -> lakers
+                            "/vi/fixture0002/" in data || "la.jpg" in data -> la
+                            else -> wall
+                        }
                         return SuccessResult(BitmapDrawable(context.resources, bmp), chain.request, DataSource.MEMORY)
                     }
                 })
@@ -372,22 +376,26 @@ class PreviewShots {
           {"title":"Bears at Packers · full game recap","videoId":"fixture0001"},
           {"title":"Fourth-quarter comeback","videoId":"fixture0002"},
           {"title":"Game-winning drive","videoId":"fixture0003"}],
-          "compare":[{"label":"Total Yards","values":["318","296"],"bars":[100,93],"winner":"away"}]}"""
+          "compare":[{"label":"Total Yards","values":["318","296"],"bars":[100,93],"winner":"away"}],
+          "performers":[{"teamId":"3","label":"Passing","athlete":"C. Williams","line":"245 YDS, 2 TD"},
+                        {"teamId":"9","label":"Passing","athlete":"J. Love","line":"225 YDS, 2 TD"}]}"""
         shoot("scores-highlights", scoresState(detail)) { state ->
             state.scores.show()
             state.scores.openGame(dev.veil.launcher.data.CourtsideScores.parseScores(scoresJson).first { it.final })
         }
-        compose.onNodeWithText("Watch highlights", substring = true, useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("Fourth-quarter comeback", substring = true, useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("Game-winning drive", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        val sections = listOf("At a glance", "Top performers", "Highlights").map { title ->
+            compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.top
+        }
+        assertTrue(sections.zipWithNext().all { (above, below) -> above < below })
         fun action(label: String) = compose.onNode(
             hasClickAction() and hasAnyDescendant(hasText(label, substring = true)),
             useUnmergedTree = true,
         )
         action("Watch in").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
-        action("Watch highlights").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
-        action("Fourth-quarter comeback").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
-        action("Game-winning drive").assertIsFocused()
+        action("Bears at Packers").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        action("Fourth-quarter comeback").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        action("Game-winning drive").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
+        action("Watch in").assertIsFocused()
     }
 
     @Test fun scoresHighlightsIntent() {
