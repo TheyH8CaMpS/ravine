@@ -110,6 +110,25 @@ object CourtsideScores {
         )
     }
 
+    /**
+     * How a game row in the list uses team colours (ravine#20), all from the API's readable `color`: a bar per team
+     * (a final's loser at 40%), the live leader's score in its colour, and the focused row's tint from the home
+     * team (Courtside lists away first, home second). Pure, unit-tested.
+     */
+    data class RowColors(val bars: List<Pair<Long, Float>>, val scores: List<Long?>, val focusTint: Long)
+
+    fun rowColors(g: Score): RowColors {
+        val points = g.teams.map { it.score.trim().toDoubleOrNull() }
+        val leader = if (g.live && points.size == 2 && points[0] != null && points[1] != null && points[0] != points[1]) {
+            if (points[0]!! > points[1]!!) 0 else 1
+        } else -1
+        return RowColors(
+            bars = g.teams.map { it.color to if (g.final && it.result == "loss") 0.4f else 1f },
+            scores = g.teams.mapIndexed { i, t -> if (i == leader) t.color else null },
+            focusTint = (g.teams.getOrNull(1) ?: g.teams.firstOrNull())?.color ?: color(null),
+        )
+    }
+
     /** "Q3" style period labels for moments: football and basketball quarters, hockey periods, baseball halves. */
     fun periodLabel(feed: String, period: String): String = when {
         period.startsWith("Top") || period.startsWith("Bottom") -> period.replace("Bottom", "Bot")

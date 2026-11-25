@@ -52,4 +52,36 @@ class CourtsideScoresTest {
         assertEquals("P2", CourtsideScores.periodLabel("NHL", "2"))
         assertEquals("Bot 7", CourtsideScores.periodLabel("MLB", "Bottom 7"))
     }
+
+    // ravine#20: every colour in a list row comes from the API's per-team `color` (away first, home second).
+    private val rows = """{"games":[
+      {"id":"NBA-1","eventId":"1","feed":"NBA","league":"NBA","state":"in","status":"5:02 - 3rd","favorite":true,
+       "teams":[{"id":"13","abbr":"LAL","name":"Lakers","color":"#8f6ac7","score":"88"},{"id":"26","abbr":"UTAH","name":"Jazz","color":"#4a7bd0","score":"81"}]},
+      {"id":"NBA-2","eventId":"2","feed":"NBA","league":"NBA","state":"post","status":"Final","favorite":false,
+       "teams":[{"id":"9","abbr":"GS","name":"Warriors","color":"#3f6fd1","score":"104","result":"loss"},{"id":"24","abbr":"SA","name":"Spurs","color":"#c4ced4","score":"110","result":"win"}]},
+      {"id":"NBA-3","eventId":"3","feed":"NBA","league":"NBA","state":"pre","status":"7:30 PM","favorite":false,
+       "teams":[{"id":"2","abbr":"BOS","name":"Celtics","color":"#3aa35b","score":"0"},{"id":"18","abbr":"NY","name":"Knicks","color":"#2f6bc8","score":"0"}]}]}"""
+
+    @Test fun rowColoursComeFromTheApiColour() {
+        val (live, final, later) = CourtsideScores.parseScores(rows)
+
+        val l = CourtsideScores.rowColors(live)
+        assertEquals(listOf(0xFF8F6AC7 to 1f, 0xFF4A7BD0 to 1f), l.bars)
+        assertEquals(listOf(0xFF8F6AC7, null), l.scores) // the leader's score in its colour
+        assertEquals(0xFF4A7BD0, l.focusTint) // home team (second)
+
+        val f = CourtsideScores.rowColors(final)
+        assertEquals(listOf(0xFF3F6FD1 to 0.4f, 0xFFC4CED4 to 1f), f.bars) // loser's bar at 40%
+        assertEquals(listOf<Long?>(null, null), f.scores) // only live games tint a score
+        assertEquals(0xFFC4CED4, f.focusTint)
+
+        val p = CourtsideScores.rowColors(later)
+        assertEquals(listOf(0xFF3AA35B to 1f, 0xFF2F6BC8 to 1f), p.bars)
+        assertEquals(listOf<Long?>(null, null), p.scores)
+    }
+
+    @Test fun tiedLiveGameTintsNoScore() {
+        val tied = CourtsideScores.parseScores(rows).first().let { g -> g.copy(teams = g.teams.map { it.copy(score = "90") }) }
+        assertEquals(listOf<Long?>(null, null), CourtsideScores.rowColors(tied).scores)
+    }
 }
