@@ -86,6 +86,7 @@ private val Faint get() = Veil.Text.copy(alpha = 0.12f)
 internal object ScoreLogoStyle {
     val precision = Precision.EXACT
     val filterQuality = FilterQuality.High
+    fun decodeSize(drawnPx: Int) = drawnPx * 2
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
@@ -309,6 +310,7 @@ private fun TeamLogo(logo: String?, color: Color, size: Dp, slotHeight: Dp = siz
         val request = remember(context, logo, sizePx) {
             ImageRequest.Builder(context)
                 .data(logo)
+                .size(ScoreLogoStyle.decodeSize(sizePx))
                 .precision(ScoreLogoStyle.precision)
                 .setParameter("score_logo_size", sizePx)
                 .build()
@@ -456,7 +458,7 @@ private fun StandingRow(
             }
             Box(Modifier.width(3.dp).height(11.dp).clip(RoundedCornerShape(1.dp)).background(team ?: Color.Transparent))
             Spacer(Modifier.width(5.dp))
-            TeamLogo(r.logo, team ?: Dim, 12.dp, slotHeight = 10.dp)
+            TeamLogo(r.logo, team ?: Dim, 16.dp, slotHeight = 10.dp)
             Spacer(Modifier.width(6.dp))
             Text(r.name, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(r.record, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)

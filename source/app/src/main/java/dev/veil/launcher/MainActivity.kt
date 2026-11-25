@@ -5,10 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.core.view.doOnLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -19,6 +22,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private companion object {
+        var displayMetricsLogged = false
+    }
+
     private lateinit var state: LauncherState
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,6 +42,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             VeilTheme {
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.clearAndSetSemantics { }) { VeilApp(state) }
+            }
+        }
+        if (BuildConfig.DEBUG) {
+            findViewById<View>(android.R.id.content).doOnLayout { view ->
+                if (displayMetricsLogged || view.width == 0 || view.height == 0) return@doOnLayout
+                displayMetricsLogged = true
+                val metrics = view.resources.displayMetrics
+                val mode = view.display?.mode?.let { "${it.physicalWidth}x${it.physicalHeight}px" } ?: "unavailable"
+                Log.d(
+                    "RavineDisplay",
+                    "UI=${view.width}x${view.height}px density=${metrics.density} (${metrics.densityDpi}dpi) displayMode=$mode",
+                )
             }
         }
         // Fresh start right after the TV boots: play the intro.

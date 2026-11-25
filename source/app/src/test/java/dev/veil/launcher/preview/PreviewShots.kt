@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.layout.LayoutModifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -51,6 +50,7 @@ import dev.veil.launcher.ui.VeilTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -465,9 +465,7 @@ class PreviewShots {
         val requests = logoRequests.values.toList()
         assertTrue("Scores requests the fixture team logos", requests.isNotEmpty())
         for (request in requests) {
-            assertEquals(Precision.EXACT, request.precision)
-            assertTrue("Logo size comes from layout constraints", request.defined.sizeResolver is LayoutModifier)
-            assertEquals("26", request.parameters.memoryCacheKey("score_logo_size"))
+            assertLogoRequest(request, drawnPx = 26)
         }
     }
     @Test fun scoresNfl() = shoot("scores-nfl", scoresState()) { it.scores.show(); it.scores.selectTab("NFL") }
@@ -478,10 +476,8 @@ class PreviewShots {
         shoot("scores-standings-nfl", scoresState(standings = mapOf("NFL" to nflConference))) {
             it.scores.show(); it.scores.selectTab("Standings")
         }
-        val request = logoRequests.getValue(afcLogo)
-        assertEquals(Precision.EXACT, request.precision)
-        assertEquals("14", request.parameters.memoryCacheKey("score_logo_size"))
-        assertTrue("The standings request the Bills logo", "https://preview/logo/BUF-498DDE.png" in logoRequests.keys)
+        assertLogoRequest(logoRequests.getValue(afcLogo), drawnPx = 14)
+        assertLogoRequest(logoRequests.getValue("https://preview/logo/BUF-498DDE.png"), drawnPx = 32)
     }
 
     @Test fun scoresStandingsApTop25() {
@@ -500,7 +496,13 @@ class PreviewShots {
         shoot("scores-standings-nba", scoresState(standings = mapOf("NBA" to nbaConference))) {
             it.scores.show(); it.scores.selectTab("Standings")
         }
-        assertTrue("The standings request the Thunder logo", "https://preview/logo/OKC-55ADDD.png" in logoRequests.keys)
+        assertLogoRequest(logoRequests.getValue("https://preview/logo/OKC-55ADDD.png"), drawnPx = 32)
+    }
+
+    private fun assertLogoRequest(request: ImageRequest, drawnPx: Int) {
+        assertEquals(Precision.EXACT, request.precision)
+        assertEquals(Size(drawnPx * 2, drawnPx * 2), runBlocking { request.sizeResolver.size() })
+        assertEquals(drawnPx.toString(), request.parameters.memoryCacheKey("score_logo_size"))
     }
     @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
         s.scores.show()
