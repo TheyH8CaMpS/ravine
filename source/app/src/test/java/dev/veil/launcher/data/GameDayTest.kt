@@ -37,6 +37,15 @@ class GameDayTest {
         assertEquals("4:12 - 3rd", live.detail)
     }
 
+    @Test fun homeGameIsOnlyLiveWhileItsScoreIsFresh() {
+        val live = EspnParse.events(json("nba-scoreboard-live-sample.json"), MyTeams.LAKERS).single()
+        val refreshed = live.copy(refreshedAt = 1_000_000)
+        assertFalse(live.showsLive(1_000_000))
+        assertTrue(refreshed.showsLive(1_090_000))
+        assertFalse(refreshed.showsLive(1_090_001))
+        assertFalse(refreshed.copy(state = Game.State.FINAL).showsLive(1_000_001))
+    }
+
     @Test fun picksLiveThenRecentFinalThenUpcoming() {
         val games = EspnParse.events(json("lakers-schedule-sample.json"), MyTeams.LAKERS)
         // The morning of Nov 18 (Pacific): last night's final is over, tonight's game is "up next".

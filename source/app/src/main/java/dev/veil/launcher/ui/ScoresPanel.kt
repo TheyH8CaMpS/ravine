@@ -30,8 +30,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +55,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +74,7 @@ import coil.size.Precision
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.CourtsideScores.Score
+import dev.veil.launcher.data.LIVE_SCORE_MAX_AGE_MS
 import dev.veil.launcher.data.MyTeams
 import dev.veil.launcher.data.YouTubeShows
 import dev.veil.launcher.state.ScoresState
@@ -93,13 +98,15 @@ internal object ScoreLogoStyle {
 @Composable
 fun ScoresPanel(state: LauncherState) {
     val s = state.scores
+    val now = scoreClock(s.lastGoodAt)
+    val stale = s.staleSince(now) != null
     BackHandler { Sfx.back(); s.back() }
     // Keep it current while open: scores every 30 s, the open game's page with them.
     LaunchedEffect(Unit) {
         while (true) {
             delay(30_000)
             s.refresh()
-            if (s.game?.live == true) s.refreshDetail()
+            if (s.game?.live == true && !s.detailFailed) s.refreshDetail()
         }
     }
     Box(Modifier.fillMaxSize()) {
@@ -118,23 +125,40 @@ fun ScoresPanel(state: LauncherState) {
             Box(Modifier.width(1.dp).fillMaxHeight().background(Veil.Text.copy(alpha = 0.1f)))
             Column(Modifier.fillMaxSize().padding(start = 32.dp, end = 34.dp, top = 28.dp, bottom = 18.dp)) {
                 val g = s.game
-                if (g == null) ScoreList(state, s) else GamePage(state, s, g)
+                if (g == null) ScoreList(state, s, now, stale) else GamePage(state, s, g, stale)
             }
         }
     }
 }
 
+/** Recompose at the freshness boundary even when the next network request is still pending. */
+@Composable
+internal fun scoreClock(fetchedAt: Long?): Long {
+    var now by remember(fetchedAt) { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(fetchedAt) {
+        now = System.currentTimeMillis()
+        val remaining = fetchedAt?.let { it + LIVE_SCORE_MAX_AGE_MS + 1 - now } ?: 0L
+        if (remaining > 0) { delay(remaining); now = System.currentTimeMillis() }
+    }
+    return now
+}
+
+private const val SCORE_LOAD_FAILED = "Couldn't load. Press OK to retry"
+
 // ---- The list ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: LauncherState, s: ScoresState) {
+private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: LauncherState, s: ScoresState, now: Long, stale: Boolean) {
     val context = LocalContext.current
     val firstRow = remember { FocusRequester() }
     Eyebrow("Courtside")
     Text("Scores", style = Type.Title, fontSize = 18.sp, lineHeight = 24.sp, modifier = Modifier.padding(top = 3.dp))
     Text(
-        java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d")) +
-            if (s.updating) "  ·  Updating…" else "",
+        listOfNotNull(
+            java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d")),
+            s.asOfLabel(now) { android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(it)) },
+            "Updating…".takeIf { s.updating },
+        ).joinToString("  ·  "),
         style = Type.Body, fontSize = 8.sp, color = Dim,
     )
     val tabs = s.tabs
@@ -157,7 +181,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
     } else {
         val games = s.gamesFor(s.tab)
         val sections = listOf(
-            "Live now" to games.filter { it.live },
+            (if (stale) "Last reported" else "Live now") to games.filter { it.live },
             "Later today" to games.filter { !it.live && !it.final }.sortedBy { it.startMs },
             "Final" to games.filter { it.final },
         ).filter { it.second.isNotEmpty() }
@@ -169,7 +193,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
                 items(gs, key = { it.id }) { g ->
                     val m = if (first) Modifier.focusRequester(firstRow) else Modifier
                     first = false
-                    GameRow(g, context, m.then(rowKeys)) { Sfx.open(); s.openGame(g) }
+                    GameRow(g, context, m.then(rowKeys), stale) { Sfx.open(); s.openGame(g) }
                 }
             }
             if (sections.isEmpty()) item {
@@ -193,7 +217,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ScoreList(state: Laun
         ScoresState.NOTABLE -> s.notable.size
         else -> s.gamesFor(s.tab).size
     }
-    LaunchedEffect(s.tab, shape) { delay(60); runCatching { firstRow.requestFocus() } }
+    LaunchedEffect(s.tab, shape, s.standingsFailed) { delay(60); runCatching { firstRow.requestFocus() } }
 }
 
 @Composable
@@ -206,9 +230,9 @@ private fun Tab(label: String, selected: Boolean) {
 
 /** A focusable line of text, so a tab with nothing in it still holds focus (and Left/Right still work). */
 @Composable
-private fun NoteRow(text: String, modifier: Modifier) {
+private fun NoteRow(text: String, modifier: Modifier, onClick: () -> Unit = {}) {
     Surface(
-        onClick = {}, modifier = modifier.fillMaxWidth().padding(top = 8.dp),
+        onClick = onClick, modifier = modifier.fillMaxWidth().padding(top = 8.dp),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(7.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent, contentColor = Veil.Text,
@@ -221,8 +245,9 @@ private fun NoteRow(text: String, modifier: Modifier) {
 }
 
 @Composable
-private fun GameRow(g: Score, context: android.content.Context, modifier: Modifier, onClick: () -> Unit) {
-    val colors = CourtsideScores.rowColors(g)
+private fun GameRow(g: Score, context: android.content.Context, modifier: Modifier, stale: Boolean, onClick: () -> Unit) {
+    val colors = CourtsideScores.rowColors(g, stale)
+    val live = g.showsLive(stale)
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().padding(vertical = 1.dp).focusSound(1f),
@@ -252,7 +277,7 @@ private fun GameRow(g: Score, context: android.content.Context, modifier: Modifi
                             t.name, fontSize = 8.5.sp, fontWeight = if (t.result == "loss") FontWeight.Medium else FontWeight.SemiBold,
                             color = if (t.result == "loss") Dim else Veil.Text, maxLines = 1,
                         )
-                        if (i == 0 && g.pick != null) Tag(if (g.live && closeGame(g.pick)) "Close" else "Worth watching")
+                        if (i == 0 && g.pick != null && !(g.live && stale)) Tag(if (live && closeGame(g.pick)) "Close" else "Worth watching")
                     }
                 }
             }
@@ -269,7 +294,7 @@ private fun GameRow(g: Score, context: android.content.Context, modifier: Modifi
             Column(Modifier.width(92.dp), horizontalAlignment = Alignment.End) {
                 Text(
                     statusText(context, g), fontSize = 7.sp, fontWeight = FontWeight.Bold,
-                    color = if (g.live) Live else Veil.Text, maxLines = 1,
+                    color = if (live) Live else Veil.Text, maxLines = 1,
                 )
                 (g.channel ?: if (g.final) null else null)?.let {
                     Text(it, fontSize = 6.5.sp, color = Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -336,8 +361,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.StandingsView(
     s: ScoresState, favoriteTeams: Set<String>, firstRow: FocusRequester, rowKeys: Modifier,
 ) {
     LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-        if (s.standings.isEmpty()) item { NoteRow("Loading standings…", Modifier.focusRequester(firstRow).then(rowKeys)) }
-        var first = true
+        if (s.standingsFailed) item {
+            NoteRow(SCORE_LOAD_FAILED, Modifier.focusRequester(firstRow).then(rowKeys), s::loadStandings)
+        } else if (s.standings.isEmpty()) item {
+            NoteRow("Loading standings…", Modifier.focusRequester(firstRow).then(rowKeys))
+        }
+        var first = !s.standingsFailed
         s.standings.forEachIndexed { leagueIndex, (league, st) ->
             val apPoll = league == "NCAAF"
             val favorites = MyTeams.all.filter { it.league.label == league && it.key in favoriteTeams }.associate { it.espnId to it.color }
@@ -474,9 +503,11 @@ private fun StandingRow(
 // ---- A game's page ----------------------------------------------------------------------------------------
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: LauncherState, s: ScoresState, g: Score) {
+private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: LauncherState, s: ScoresState, g: Score, stale: Boolean) {
     val context = LocalContext.current
     val watch = remember { FocusRequester() }
+    val stats = remember { FocusRequester() }
+    val retry = remember { FocusRequester() }
     val firstHighlight = remember { FocusRequester() }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -505,26 +536,37 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
         home?.let { Text(it.name, style = Type.Title, fontSize = 16.sp); Spacer(Modifier.width(6.dp)); TeamLogo(it, 16.dp) }
     }
     Row(Modifier.padding(top = 3.dp)) {
-        Text(statusText(context, g), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = if (g.live) Live else Veil.Text)
+        val status = if (g.live && stale) "Last reported · ${g.status}" else statusText(context, g)
+        Text(status, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = if (g.showsLive(stale)) Live else Veil.Text)
         g.situation?.let { Text("  ·  $it", fontSize = 7.5.sp, color = Veil.Text.copy(alpha = 0.85f)) }
     }
     // Why Courtside picked it (Worth watching), in its own words.
     g.pick?.let { Text(it, fontSize = 7.sp, color = Veil.Accent.copy(alpha = 0.9f), modifier = Modifier.padding(top = 2.dp)) }
-    // Down reaches the highlight row when available, or scrolls the details.
-    GameAction(
-        onClick = { Sfx.select(); s.close(); state.gameDay.openWatchApp() },
-        modifier = Modifier.padding(top = 9.dp).focusRequester(watch)
-            .focusProperties { if (highlights.isNotEmpty()) down = firstHighlight }
-            .onPreviewKeyEvent { scrollAtEnd(it, atTop = true, atBottom = highlights.isEmpty()) },
-    ) {
-        Text("▶  Watch in ${state.gameDay.watchWithLabel}", fontSize = 8.sp, fontWeight = FontWeight.Bold)
-        g.channel?.let { Text("   $it", fontSize = 7.sp, modifier = Modifier.graphicsAlpha(0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    if (g.canWatch) {
+        GameAction(
+            onClick = { Sfx.select(); s.close(); state.gameDay.openWatchApp() },
+            modifier = Modifier.padding(top = 9.dp).focusRequester(watch)
+                .onPreviewKeyEvent { scrollAtEnd(it, atTop = true, atBottom = true) },
+        ) {
+            Text("▶  Watch in ${state.gameDay.watchWithLabel}", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            g.channel?.let { Text("   $it", fontSize = 7.sp, modifier = Modifier.graphicsAlpha(0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
     }
-    LaunchedEffect(g.id) { delay(60); runCatching { watch.requestFocus() } }
+    if (s.detailFailed) NoteRow(SCORE_LOAD_FAILED, Modifier.focusRequester(retry), s::refreshDetail)
+    LaunchedEffect(g.id, g.canWatch, s.detailFailed) {
+        delay(60)
+        val first = if (s.detailFailed) retry else if (g.canWatch) watch else stats
+        runCatching { first.requestFocus() }
+    }
 
     val d = detail
-    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll)) {
-        if (d == null) { Note("Loading…"); return@Column }
+    val statsFocus = if (g.canWatch) Modifier else Modifier
+        .testTag("score-stats")
+        .focusRequester(stats)
+        .focusProperties { if (highlights.isNotEmpty()) down = firstHighlight }
+        .focusable()
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).then(statsFocus)) {
+        if (d == null) { if (!s.detailFailed) Note("Loading…"); return@Column }
         if (d.compare.isNotEmpty()) {
             Section("At a glance")
             d.compare.forEach { c -> CompareRow(c, g.team(d.teamIds.getOrNull(0)) ?: away, g.team(d.teamIds.getOrNull(1)) ?: home) }
@@ -549,7 +591,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.GamePage(state: Launc
                     val anchor = if (index == 0) Modifier.focusRequester(firstHighlight) else Modifier
                     HighlightCard(
                         highlight,
-                        anchor.focusProperties { up = watch }
+                        anchor.focusProperties { up = stats }
                             .onPreviewKeyEvent { scrollAtEnd(it, atTop = false, atBottom = true) },
                     ) {
                         Sfx.select()

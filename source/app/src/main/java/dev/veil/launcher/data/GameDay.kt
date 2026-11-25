@@ -37,6 +37,8 @@ object MyTeams {
     val all = listOf(DODGERS, LAKERS, RAIDERS)
 }
 
+internal const val LIVE_SCORE_MAX_AGE_MS = 90_000L
+
 data class Game(
     val id: String,
     val team: Team,
@@ -52,8 +54,12 @@ data class Game(
     val broadcast: String?,
     /** Courtside's provider channel ("512 · Spectrum SportsNet LA"), when set up; else null. */
     val channel: String? = null,
+    val refreshedAt: Long? = null,
 ) {
     enum class State { PRE, LIVE, FINAL }
+
+    fun showsLive(now: Long): Boolean = state == State.LIVE &&
+        refreshedAt?.let { now - it <= LIVE_SCORE_MAX_AGE_MS } == true
 
     /** Where to find it in TiviMate: Courtside's provider channel if known, else ESPN's network. */
     val whereToWatch: String? get() = channel ?: broadcast
@@ -194,8 +200,9 @@ object GameDay {
             if (now - lastRefresh >= every) {
                 lastRefresh = now
                 runCatching { source.refresh(pick!!) }.getOrNull()?.let { fresh ->
-                    schedules[fresh.team.key] = schedules[fresh.team.key].orEmpty().map { if (it.id == fresh.id) fresh else it }
-                    pick = fresh
+                    val updated = fresh.copy(refreshedAt = now)
+                    schedules[fresh.team.key] = schedules[fresh.team.key].orEmpty().map { if (it.id == fresh.id) updated else it }
+                    pick = updated
                 }
             }
         }

@@ -6,6 +6,17 @@ import org.junit.Test
 
 /** ravine#11: the Now Playing cover prefers the session's art URI and never blows up a small thumbnail. */
 class CoverArtTest {
+    @Test fun trackChangeUsesThePlaceholderUntilItsOwnArtworkArrives() {
+        val cover = TrackArtwork<String>()
+        val first = TrackArtworkKey("test.player", "First song", "Artist", "Album", "1")
+        val second = first.copy(title = "Second song", mediaId = "2")
+        cover.store(first, "first cover")
+        assertEquals("first cover", cover.forTrack(first))
+        assertNull(cover.forTrack(second))
+        cover.store(second, "second cover")
+        assertEquals("second cover", cover.forTrack(second))
+    }
+
     @Test fun artUriBeatsBitmap() {
         assertEquals(CoverArt.Source.URI, CoverArt.choose("https://i.scdn.co/image/abc", hasBitmap = true))
         assertEquals(CoverArt.Source.URI, CoverArt.choose("content://com.spotify.music/art/1", hasBitmap = false))

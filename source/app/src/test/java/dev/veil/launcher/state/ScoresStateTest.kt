@@ -1,5 +1,6 @@
 package dev.veil.launcher.state
 
+import dev.veil.launcher.data.CourtsideScores
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
@@ -77,6 +78,85 @@ class ScoresStateTest {
         c.save(today, "{\"games\":[]}")
         assertEquals("{\"games\":[]}", c.load(today))
         assertNull(c.load(today.plusDays(1)))
+    }
+
+    @Test fun legacyScoreboardsUseTheirExistingFileTime() {
+        val legacy = tmp.newFile("legacy-scores.json").apply {
+            writeText("$today\n${board("NBA-1")}")
+        }
+        val cache = ScoresCache(legacy)
+        assertEquals(board("NBA-1"), cache.load(today))
+        assertEquals(legacy.lastModified(), cache.read(today)?.fetchedAt)
+    }
+
+    @Test fun unreachableRefreshKeepsItsAsOfTimeAndStopsHighlightingLiveScores() {
+        val savedAt = 2_000_000L
+        val cache = ScoresCache(tmp.newFile("stale.json"))
+        val live = board("NBA-1").replace("\"pre\"", "\"in\"").replaceFirst("\"score\":\"0\"", "\"score\":\"10\"")
+        cache.save(today, live, savedAt)
+        val s = ScoresState(CoroutineScope(Dispatchers.Unconfined), { null }, { true }, cache, { today })
+
+        s.show()
+        waitUntil { !s.loading }
+        val game = s.games.single()
+        assertNull(s.asOfLabel(savedAt + 90_000) { "7:42 PM" })
+        assertEquals("As of 7:42 PM", s.asOfLabel(savedAt + 90_001) { stamp ->
+            assertEquals(savedAt, stamp)
+            "7:42 PM"
+        })
+        assertTrue(CourtsideScores.rowColors(game).scores.any { it != null })
+        assertEquals(listOf<Long?>(null, null), CourtsideScores.rowColors(game, stale = true).scores)
+        assertTrue(game.showsLive(stale = false))
+        assertFalse(game.showsLive(stale = true))
+        assertTrue(game.canWatch)
+        assertFalse(game.copy(state = "post").canWatch)
+    }
+
+    @Test fun detailTimesOutEvenWhileTheNetworkCallIsStillBlocked() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val s = ScoresState(
+            CoroutineScope(Dispatchers.Unconfined),
+            fetcher = { started.countDown(); release.await(5, TimeUnit.SECONDS); null },
+            configured = { true },
+            cache = ScoresCache(tmp.newFile("detail.json")),
+            today = { today },
+            pageTimeoutMs = 80,
+        )
+        try {
+            s.openGame(CourtsideScores.parseScores(board("NBA-1")).single())
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            waitUntil { s.detailFailed }
+            assertTrue(s.detailFailed)
+            assertNull(s.detail)
+            assertEquals(1L, release.count)
+        } finally {
+            release.countDown()
+        }
+    }
+
+    @Test fun standingsFailureCanBeRetried() {
+        val attempts = java.util.concurrent.atomic.AtomicInteger()
+        val online = java.util.concurrent.atomic.AtomicBoolean()
+        val s = ScoresState(
+            CoroutineScope(Dispatchers.Unconfined),
+            fetcher = {
+                attempts.incrementAndGet()
+                if (online.get()) """{"standings":{"groups":[{"name":"Fixture","rows":[{"name":"Fixture team"}]}]}}""" else null
+            },
+            configured = { true },
+            cache = ScoresCache(tmp.newFile("standings.json")),
+            today = { today },
+        )
+        s.selectTab(ScoresState.STANDINGS)
+        waitUntil { s.standingsFailed }
+        assertTrue(s.standingsFailed)
+        online.set(true)
+        s.loadStandings()
+        waitUntil { s.standings.isNotEmpty() }
+        assertFalse(s.standingsFailed)
+        assertTrue(s.standings.isNotEmpty())
+        assertTrue(attempts.get() > 4)
     }
 
     @Test fun standingsUsesTheFixedLeagueOrderAndRequiresAnInSeasonMlbResponse() {

@@ -7,10 +7,15 @@ import androidx.compose.runtime.setValue
 import dev.veil.launcher.data.CourtsideGuide
 import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.CourtsideScores.Score
+import dev.veil.launcher.data.LIVE_SCORE_MAX_AGE_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,6 +33,7 @@ class ScoresState internal constructor(
     private val cache: ScoresCache,
     /** Today in Courtside's zone; replaced in tests. */
     internal var today: () -> LocalDate = { LocalDate.now(ZONE) },
+    private val pageTimeoutMs: Long = 20_000,
 ) {
     constructor(context: Context, scope: CoroutineScope) : this(
         scope,
@@ -69,6 +75,11 @@ class ScoresState internal constructor(
         private set
     /** The Pacific day [games] belong to. */
     private var gamesDay: LocalDate? = null
+    var lastGoodAt by mutableStateOf<Long?>(null)
+        private set
+
+    fun staleSince(now: Long): Long? = lastGoodAt?.takeIf { now - it > LIVE_SCORE_MAX_AGE_MS }
+    fun asOfLabel(now: Long, format: (Long) -> String): String? = staleSince(now)?.let { "As of ${format(it)}" }
 
     /** Tabs: Your teams, each league playing today, Notable (when Courtside has lines), Standings. */
     val tabs: List<String> get() =
@@ -85,10 +96,16 @@ class ScoresState internal constructor(
         private set
     var detail by mutableStateOf<CourtsideScores.Detail?>(null)
         private set
+    var detailFailed by mutableStateOf(false)
+        private set
+    private var detailRequest: Job? = null
 
     /** NFL, NBA, the college AP poll, and MLB when Courtside reports that it is in season. */
     var standings by mutableStateOf<List<Pair<String, CourtsideScores.Standings>>>(emptyList())
         private set
+    var standingsFailed by mutableStateOf(false)
+        private set
+    private var standingsRequest: Job? = null
     private var standingsLoaded = 0L
 
     /** Courtside's Notable lines (ravine#22): today's, or last night's while today has none yet. Up to 8. */
@@ -102,7 +119,8 @@ class ScoresState internal constructor(
     private var notableLoaded = 0L
 
     fun show() {
-        open = true; game = null; detail = null
+        open = true
+        clearGame()
         restoreToday()
         refresh()
         loadNotable()
@@ -148,21 +166,32 @@ class ScoresState internal constructor(
     private fun restoreToday() {
         val day = today()
         if (gamesDay == day && games.isNotEmpty()) { updating = true; return }
-        val cached = runCatching { cache.load(day)?.let { CourtsideScores.parseScores(it) } }.getOrNull()
-        games = cached ?: emptyList()
+        val cached = runCatching {
+            cache.read(day)?.let { CourtsideScores.parseScores(it.body) to it.fetchedAt }
+        }.getOrNull()
+        games = cached?.first ?: emptyList()
+        lastGoodAt = cached?.second
         gamesDay = if (cached != null) day else null
         updating = cached != null
         failed = false
         if (tab !in tabs) tab = YOURS
     }
-    fun close() { if (open) closedTick++; open = false; game = null; detail = null }
+    fun close() { if (open) closedTick++; open = false; clearGame() }
+
+    private fun clearGame() {
+        detailRequest?.cancel()
+        detailRequest = null
+        game = null
+        detail = null
+        detailFailed = false
+    }
 
     /** Bumped on each close, so the top bar can put focus back on the Scores button. */
     var closedTick by mutableStateOf(0)
         private set
 
     /** Back: the game page goes back to the list; the list closes the panel. */
-    fun back() { if (game != null) { game = null; detail = null } else close() }
+    fun back() { if (game != null) clearGame() else close() }
 
     fun refresh() {
         if (loading) return
@@ -171,36 +200,54 @@ class ScoresState internal constructor(
         scope.launch {
             val parsed = withContext(Dispatchers.IO) {
                 val text = runCatching { fetcher(scoresPath(day)) }.getOrNull()
-                text?.let { runCatching { CourtsideScores.parseScores(it) }.getOrNull() }
-                    ?.also { runCatching { cache.save(day, text) } }
+                text?.let { body ->
+                    runCatching { CourtsideScores.parseScores(body) }.getOrNull()?.let { scores ->
+                        val fetchedAt = System.currentTimeMillis()
+                        runCatching { cache.save(day, body, fetchedAt) }
+                        scores to fetchedAt
+                    }
+                }
             }
-            loading = false
             updating = false
             failed = parsed == null && games.isEmpty()
             if (parsed != null) {
-                games = parsed
+                games = parsed.first
+                lastGoodAt = parsed.second
                 gamesDay = day
-                game = game?.let { g -> parsed.firstOrNull { it.id == g.id } ?: g }
+                game = game?.let { g -> games.firstOrNull { it.id == g.id } ?: g }
             }
             if (tab !in tabs) tab = YOURS
-            if (tab == STANDINGS) loadStandings()
+            if (tab == STANDINGS && !standingsFailed) loadStandings()
+            loading = false
         }
     }
 
     fun openGame(g: Score) {
+        clearGame()
         game = g
-        detail = null
         loadDetail(g)
     }
 
     fun refreshDetail() { game?.let { loadDetail(it) } }
 
     private fun loadDetail(g: Score) {
-        scope.launch {
-            val text = withContext(Dispatchers.IO) { runCatching { fetcher("/api/tv/game?feed=${g.feed}&id=${g.eventId}") }.getOrNull() }
-            val d = text?.let { runCatching { CourtsideScores.parseDetail(it) }.getOrNull() }
-            if (game?.id == g.id && d != null) detail = d
+        if (detailRequest?.isActive == true) return
+        detailFailed = false
+        detailRequest = scope.launch {
+            val result = requestPage {
+                runCatching { fetcher("/api/tv/game?feed=${g.feed}&id=${g.eventId}")?.let(CourtsideScores::parseDetail) }.getOrNull()
+            }
+            detailRequest = null
+            if (game?.id == g.id) {
+                if (result != null) detail = result else detailFailed = true
+            }
         }
+    }
+
+    private suspend fun <T> requestPage(load: CoroutineScope.() -> T): T? {
+        // Wait separately from blocking I/O so the panel can leave Loading even if the socket hasn't returned.
+        val request = scope.async(Dispatchers.IO) { load() }
+        return try { withTimeoutOrNull(pageTimeoutMs) { request.await() } } finally { request.cancel() }
     }
 
     fun selectTab(t: String) {
@@ -211,11 +258,13 @@ class ScoresState internal constructor(
     /** Standings change slowly: loaded at most every 10 minutes. */
     fun loadStandings() {
         val now = System.currentTimeMillis()
-        if (now - standingsLoaded < 10 * 60_000L && standings.isNotEmpty()) return
+        if (standingsRequest?.isActive == true || (now - standingsLoaded < 10 * 60_000L && standings.isNotEmpty())) return
         standingsLoaded = now
-        scope.launch {
-            val loaded = withContext(Dispatchers.IO) {
+        standingsFailed = false
+        standingsRequest = scope.launch {
+            val loaded = requestPage {
                 listOf("NFL", "NBA", "NCAAF", "MLB").mapNotNull { league ->
+                    ensureActive()
                     runCatching {
                         fetcher("/api/tv/standings?league=$league")?.let(CourtsideScores::parseStandings)
                     }.getOrNull()
@@ -223,8 +272,13 @@ class ScoresState internal constructor(
                         ?.let { league to it }
                 }
             }
-            standings = loaded
-            if (loaded.isEmpty()) standingsLoaded = 0L
+            standingsRequest = null
+            if (loaded.isNullOrEmpty()) {
+                standingsLoaded = 0L
+                standingsFailed = true
+            } else {
+                standings = loaded
+            }
         }
     }
 
@@ -236,20 +290,27 @@ class ScoresState internal constructor(
     }
 }
 
-/** The last good `/api/tv/scores` body on disk, tagged with its day: first line the date, then the body. */
+/** The last good scoreboard on disk, tagged with its Pacific day and fetch time. */
 class ScoresCache(private val file: File) {
-    fun save(day: LocalDate, body: String) {
+    internal data class Entry(val body: String, val fetchedAt: Long)
+
+    fun save(day: LocalDate, body: String, fetchedAt: Long = System.currentTimeMillis()) {
         val tmp = File(file.path + ".tmp")
-        tmp.writeText("$day\n$body")
+        tmp.writeText("$day $fetchedAt\n$body")
         if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
     }
 
     /** The body saved for [day], or null if there is none or it is from another day. */
-    fun load(day: LocalDate): String? {
+    internal fun read(day: LocalDate): Entry? {
         if (!file.exists()) return null
         val text = file.readText()
         val nl = text.indexOf('\n')
-        if (nl < 0 || text.substring(0, nl) != day.toString()) return null
-        return text.substring(nl + 1)
+        if (nl < 0) return null
+        val header = text.substring(0, nl)
+        if (header.substringBefore(' ') != day.toString()) return null
+        val fetchedAt = header.substringAfter(' ', "").toLongOrNull() ?: file.lastModified()
+        return Entry(text.substring(nl + 1), fetchedAt)
     }
+
+    fun load(day: LocalDate): String? = read(day)?.body
 }

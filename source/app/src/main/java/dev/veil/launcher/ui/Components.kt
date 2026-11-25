@@ -195,7 +195,7 @@ fun Clock(fontSize: TextUnit = 24.sp) {
 fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit) {
     val context = LocalContext.current
     var focused by remember { mutableStateOf(false) }
-    val live = game.state == dev.veil.launcher.data.Game.State.LIVE
+    val live = game.showsLive(scoreClock(game.refreshedAt))
     val title = when (game.state) {
         dev.veil.launcher.data.Game.State.PRE -> game.matchup
         else -> "${game.team.name} ${game.ourScore ?: 0} · ${game.opponent} ${game.theirScore ?: 0}"
@@ -203,7 +203,7 @@ fun GameStrip(game: dev.veil.launcher.data.Game, now: Long, onClick: () -> Unit)
     val note = when (game.state) {
         // Before the game: when, and on which channel (from ESPN), so it's quick to find in TiviMate.
         dev.veil.launcher.data.Game.State.PRE -> listOfNotNull(gameStartText(context, game.startMs, now), game.whereToWatch).joinToString(" · ")
-        dev.veil.launcher.data.Game.State.LIVE -> listOfNotNull(game.detail, game.whereToWatch).joinToString(" · ")
+        dev.veil.launcher.data.Game.State.LIVE -> listOfNotNull("Last reported".takeUnless { live }, game.detail, game.whereToWatch).joinToString(" · ")
         dev.veil.launcher.data.Game.State.FINAL -> "Final" + when (game.won) { true -> " · W"; false -> " · L"; null -> "" }
     }
     // While live, the team dot breathes slowly.

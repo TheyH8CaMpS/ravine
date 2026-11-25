@@ -26,6 +26,8 @@ object CourtsideScores {
     ) {
         val live get() = state == "in"
         val final get() = state == "post"
+        val canWatch get() = !final
+        fun showsLive(stale: Boolean) = live && !stale
         fun team(id: String?) = teams.firstOrNull { it.id == id }
     }
 
@@ -184,9 +186,9 @@ object CourtsideScores {
      */
     data class RowColors(val bars: List<Pair<Long, Float>>, val scores: List<Long?>, val focusTint: Long)
 
-    fun rowColors(g: Score): RowColors {
+    fun rowColors(g: Score, stale: Boolean = false): RowColors {
         val points = g.teams.map { it.score.trim().toDoubleOrNull() }
-        val leader = if (g.live && points.size == 2 && points[0] != null && points[1] != null && points[0] != points[1]) {
+        val leader = if (g.showsLive(stale) && points.size == 2 && points[0] != null && points[1] != null && points[0] != points[1]) {
             if (points[0]!! > points[1]!!) 0 else 1
         } else -1
         return RowColors(
