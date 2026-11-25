@@ -17,6 +17,7 @@ import dev.veil.launcher.data.LocalHistory
 import dev.veil.launcher.data.OfflineImageCache
 import dev.veil.launcher.data.WatchItem
 import dev.veil.launcher.data.WatchingCache
+import dev.veil.launcher.data.Weather
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +50,24 @@ class OfflineStartupPreviewShots {
 
     @Before fun disableProviders() { Http.offline = true }
     @After fun restoreProviders() { Http.offline = false }
+
+    @Test fun weatherOnlyUsesACityChosenOnTheDevice() {
+        val prefs = context.getSharedPreferences("weather", Context.MODE_PRIVATE)
+        prefs.edit().putString("city", "Legacy cached value").putFloat("lat", 1f).putFloat("lon", 2f).apply()
+        val weather = Weather(context)
+        assertFalse(weather.enabled)
+        assertNull(weather.placeName)
+        assertNull(weather.current())
+
+        weather.setPlace(Weather.Place("Saved place", "", 1.0, 2.0))
+        assertTrue(Weather(context).enabled)
+        assertEquals("Saved place", Weather(context).placeName)
+
+        weather.clearPlace()
+        assertFalse(Weather(context).enabled)
+        assertNull(Weather(context).placeName)
+        assertNull(Weather(context).current())
+    }
 
     @Test fun aColdLauncherRestoresTheWatchRowArtworkAndConfiguredScores() = runBlocking {
         val lastPlayed = System.currentTimeMillis()

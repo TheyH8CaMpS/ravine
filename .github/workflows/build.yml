@@ -28,11 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.name }}
+      build: ${{ steps.version.outputs.build }}
     defaults:
       run:
         working-directory: source
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
@@ -45,12 +48,10 @@ jobs:
         env:
           TMDB_KEY: ${{ secrets.TMDB_KEY }}
           SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
-          WEATHER_CITY: ${{ vars.WEATHER_CITY }}
         run: |
           {
             echo "TMDB_KEY=${TMDB_KEY}"
             echo "SIMKL_CLIENT_ID=${SIMKL_CLIENT_ID}"
-            echo "WEATHER_CITY=${WEATHER_CITY}"
           } > keys.properties
           if [ -z "${TMDB_KEY}" ]; then echo "::warning::TMDB_KEY secret is not set: artwork will be missing."; fi
 
@@ -68,9 +69,24 @@ jobs:
       - name: Build and test
         env:
           RAVINE_KEYSTORE_PASSWORD: ${{ secrets.RAVINE_KEYSTORE_PASSWORD }}
-          # Every CI build gets a higher versionCode, so Android always treats it as an update.
-          RAVINE_BUILD_NUMBER: ${{ github.run_number }}
-        run: ./gradlew --no-daemon assembleRelease testReleaseUnitTest
+        run: |
+          python3 ../tools/test_release_order.py
+          RAVINE_COMMIT_COUNT="$(git rev-list --count HEAD)"
+          export RAVINE_COMMIT_COUNT
+          ./gradlew --no-daemon assembleRelease testReleaseUnitTest
+
+      - name: Verify and read the APK version
+        id: version
+        run: |
+          apk=app/build/outputs/apk/release/output-metadata.json
+          code=$(jq -er '.elements[] | select(.outputFile == "app-release.apk") | .versionCode | select(type == "number")' "$apk")
+          if (( code < 210 )); then
+            echo '::error::APK version code is below the published Build 110 floor (210).'
+            exit 1
+          fi
+          name=$(jq -er '.elements[] | select(.outputFile == "app-release.apk") | .versionName' "$apk")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "build=$((code - 100))" >> "$GITHUB_OUTPUT"
 
       - name: Name the APK
         run: cp app/build/outputs/apk/release/app-release.apk ravine.apk
@@ -80,10 +96,6 @@ jobs:
           name: ravine-apk
           path: source/ravine.apk
 
-      - name: Read version
-        id: version
-        run: echo "name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
-
   release:
     needs: build
     if: >-
@@ -91,19 +103,39 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')) ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.release)
     runs-on: ubuntu-latest
+    concurrency:
+      group: ravine-release
+      queue: max
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Check published APK build numbers
+        id: ordering
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_BUILD: ${{ needs.build.outputs.build }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select((.draft | not) and (.prerelease | not) and any(.assets[]; .name == "ravine.apk")) | {tag_name, name}' \
+            | python3 tools/release_order.py "$APK_BUILD" >> "$GITHUB_OUTPUT"
+
       - uses: actions/download-artifact@v5
+        if: steps.ordering.outputs.publish == 'true'
         with:
           name: ravine-apk
           path: source
 
       - name: Publish release
+        if: steps.ordering.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', needs.build.outputs.version, github.run_number) }}
-          name: Ravine ${{ needs.build.outputs.version }} (build ${{ github.run_number }})
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-build{1}', needs.build.outputs.version, needs.build.outputs.build) }}
+          name: Ravine ${{ needs.build.outputs.version }} (build ${{ needs.build.outputs.build }})
           target_commitish: ${{ github.sha }}
           files: source/ravine.apk
           generate_release_notes: true
