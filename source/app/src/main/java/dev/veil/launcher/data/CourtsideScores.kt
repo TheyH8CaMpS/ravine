@@ -32,7 +32,12 @@ object CourtsideScores {
     data class Compare(val label: String, val values: List<String>, val bars: List<Int>?, val winner: String?)
     data class Performer(val teamId: String, val label: String, val athlete: String, val line: String)
     data class Moment(val teamId: String?, val period: String, val clock: String, val text: String, val score: String?)
-    data class Detail(val teamIds: List<String>, val compare: List<Compare>, val performers: List<Performer>, val moments: List<Moment>)
+    data class Highlight(val title: String, val videoId: String)
+    data class Detail(
+        val teamIds: List<String>, val compare: List<Compare>, val performers: List<Performer>, val moments: List<Moment>,
+        val highlights: List<Highlight> = emptyList(),
+    )
+    private val videoIdPattern = Regex("[A-Za-z0-9_-]{11}")
 
     /** One of Courtside's Notable lines (GET /api/tv/notable, courtside#249); [feed] + [eventId] open its game. */
     data class Notable(
@@ -101,6 +106,11 @@ object CourtsideScores {
             moments = o.optJSONArray("moments").objects().map {
                 Moment(it.str("teamId"), it.optString("period"), it.optString("clock"), it.optString("text"), it.str("score"))
             },
+            highlights = o.optJSONArray("highlights").objects().mapNotNull {
+                val videoId = (it.opt("videoId") as? String)?.takeIf(videoIdPattern::matches) ?: return@mapNotNull null
+                val title = (it.opt("title") as? String)?.trim()?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
+                Highlight(title, videoId)
+            }.distinctBy { it.videoId }.take(3),
         )
     }
 

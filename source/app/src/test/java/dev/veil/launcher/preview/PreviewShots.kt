@@ -1,8 +1,11 @@
 package dev.veil.launcher.preview
 
 import android.app.Application
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -15,8 +18,10 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.activity.ComponentActivity
@@ -30,14 +35,19 @@ import coil.request.ImageResult
 import coil.request.SuccessResult
 import dev.veil.launcher.LauncherState
 import dev.veil.launcher.data.AppEntry
+import dev.veil.launcher.data.CourtsideScores
 import dev.veil.launcher.data.Updates
 import dev.veil.launcher.data.WatchItem
+import dev.veil.launcher.data.YouTubeShows
 import dev.veil.launcher.ui.VeilApp
 import dev.veil.launcher.ui.VeilTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -332,12 +342,12 @@ class PreviewShots {
     // Courtside's /api/tv/notable (ravine#22); the same shape as the unit-test fixture.
     private val notableJson = javaClass.getResourceAsStream("/courtside/tv-notable.json")!!.bufferedReader().readText()
 
-    private fun scoresState(): LauncherState = newState().also { s ->
+    private fun scoresState(detail: String = gameJson): LauncherState = newState().also { s ->
         s.scores.forceAvailable = true
         s.scores.fetcher = { path ->
             when {
                 path.startsWith("/api/tv/scores") -> scoresJson
-                path.startsWith("/api/tv/game") -> gameJson
+                path.startsWith("/api/tv/game") -> detail
                 path.startsWith("/api/tv/standings") -> standingsJson
                 path.startsWith("/api/tv/notable") -> notableJson
                 else -> null
@@ -354,6 +364,68 @@ class PreviewShots {
     @Test fun scoresGame() = shoot("scores-game", scoresState()) { s ->
         s.scores.show()
         s.scores.openGame(dev.veil.launcher.data.CourtsideScores.parseScores(scoresJson).first())
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun scoresHighlights() {
+        val detail = """{"teamIds":["3","9"],"highlights":[
+          {"title":"Bears at Packers · full game recap","videoId":"fixture0001"},
+          {"title":"Fourth-quarter comeback","videoId":"fixture0002"},
+          {"title":"Game-winning drive","videoId":"fixture0003"}],
+          "compare":[{"label":"Total Yards","values":["318","296"],"bars":[100,93],"winner":"away"}]}"""
+        shoot("scores-highlights", scoresState(detail)) { state ->
+            state.scores.show()
+            state.scores.openGame(dev.veil.launcher.data.CourtsideScores.parseScores(scoresJson).first { it.final })
+        }
+        compose.onNodeWithText("Watch highlights", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Fourth-quarter comeback", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Game-winning drive", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        fun action(label: String) = compose.onNode(
+            hasClickAction() and hasAnyDescendant(hasText(label, substring = true)),
+            useUnmergedTree = true,
+        )
+        action("Watch in").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        action("Watch highlights").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        action("Fourth-quarter comeback").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        action("Game-winning drive").assertIsFocused()
+    }
+
+    @Test fun scoresHighlightsIntent() {
+        val id = CourtsideScores.parseDetail(
+            """{"highlights":[{"title":"Fixture recap","videoId":"fixture0001"}]}""",
+        ).highlights.single().videoId
+        val smartTube = "org.smarttube.stable"
+        val packages = org.robolectric.Shadows.shadowOf(context.packageManager)
+        packages.installPackage(PackageInfo().apply { packageName = smartTube })
+        val attempts = mutableListOf<Intent>()
+        var rejectSmartTube = false
+        val recording = object : ContextWrapper(context) {
+            override fun startActivity(intent: Intent) {
+                attempts.add(Intent(intent))
+                if (rejectSmartTube && intent.`package` != null) throw ActivityNotFoundException()
+            }
+        }
+        assertTrue(YouTubeShows.openVideo(recording, id))
+        val preferred = attempts.single()
+        assertEquals(Intent.ACTION_VIEW, preferred.action)
+        assertEquals(smartTube, preferred.`package`)
+        assertEquals("https", preferred.data?.scheme)
+        assertEquals("www.youtube.com", preferred.data?.host)
+        assertEquals("/watch", preferred.data?.path)
+        assertEquals(id, preferred.data?.getQueryParameter("v"))
+        assertTrue(preferred.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+        assertTrue(!YouTubeShows.opened(recording, id))
+
+        attempts.clear()
+        rejectSmartTube = true
+        assertTrue(YouTubeShows.openVideo(recording, id))
+        assertEquals(listOf(smartTube, null), attempts.map { it.`package` })
+        assertEquals(preferred.data, attempts.last().data)
+
+        attempts.clear()
+        packages.deletePackage(smartTube)
+        assertTrue(YouTubeShows.openVideo(recording, id))
+        assertNull(attempts.single().`package`)
     }
 
     // ---- Music on Home (D51) ----
